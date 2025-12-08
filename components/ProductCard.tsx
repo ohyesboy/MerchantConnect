@@ -56,13 +56,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
         {/* Selection Indicator Overlay */}
         {!isAdmin && (
-          <div className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-white/80 text-slate-400 hover:bg-white'}`}>
-            <i className={`fas ${isSelected ? 'fa-check' : 'fa-plus'}`}></i>
+          <div className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-white/80 text-slate-400 hover:bg-white'}`}>
+            <i className={`fas ${isSelected ? 'fa-check' : 'fa-plus'} text-lg`}></i>
           </div>
         )}
       </div>
       {/* Thumbnails Row (non-admin mode) */}
-      {product.images && product.images.length > 1 && (
+      {product.images && (
         <div className="flex gap-2 px-4 py-2 bg-transparent">
           {product.images.map((imgObj, idx) => (
             imgObj.urls.small ? (
