@@ -17,6 +17,7 @@ import { Product, UserProfile, ViewState } from './types';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const adminEmail = import.meta.env.VITE_AdminEmail || '';
+const normalizedAdminEmail = adminEmail.trim().toLowerCase();
 
 const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
@@ -156,7 +157,8 @@ const App: React.FC = () => {
                     <span className="text-sm font-medium text-slate-800">{user.firstName} {user.lastName}</span>
                     <span className="text-xs text-slate-500">{user.email}</span>
                   </div>
-                  {user.email === adminEmail && (
+  
+                   {user.email === adminEmail && (
                     <button 
                       onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
                       className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
@@ -197,8 +199,8 @@ const App: React.FC = () => {
             </p>
           </div>
           
-          {viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (
-            <button 
+{viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (     
+         <button 
               onClick={async () => {
                 // Create product in Firestore and open form
                 const defaultProduct = {

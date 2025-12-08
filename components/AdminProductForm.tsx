@@ -29,21 +29,18 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         // Upload original image
         const bigURL = await uploadProductImage(file, initialProduct?.id);
 
-        // Generate thumbnail in browser
-        const createThumbnail = (file: File): Promise<Blob> => {
+        // Helper to generate resized blob by short edge
+        const createResizedBlob = (file: File, SHORT_EDGE: number): Promise<Blob> => {
           return new Promise((resolve, reject) => {
             const img = new window.Image();
             const reader = new FileReader();
             reader.onload = (ev) => {
               img.onload = async () => {
                 try {
-                  // Target short edge (px)
-                  const SHORT_EDGE = 200;
                   const scale = SHORT_EDGE / Math.min(img.width, img.height);
                   const targetW = Math.round(img.width * scale);
                   const targetH = Math.round(img.height * scale);
 
-                  // Render at a higher internal resolution (devicePixelRatio) then downscale
                   const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
                   const hiW = Math.round(targetW * ratio);
                   const hiH = Math.round(targetH * ratio);
@@ -57,7 +54,6 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   hiCtx.imageSmoothingQuality = 'high';
                   hiCtx.drawImage(img, 0, 0, hiW, hiH);
 
-                  // Final canvas at the exact target size
                   const finalCanvas = document.createElement('canvas');
                   finalCanvas.width = targetW;
                   finalCanvas.height = targetH;
@@ -65,13 +61,11 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   if (!fctx) return reject(new Error('Canvas context error'));
                   fctx.imageSmoothingEnabled = true;
                   fctx.imageSmoothingQuality = 'high';
-                  // Draw the high-res canvas into final canvas for high-quality downsampling
                   fctx.drawImage(hiCanvas, 0, 0, targetW, targetH);
 
-                  // Use high JPEG quality; adjust as needed (0.9-0.98)
                   finalCanvas.toBlob((blob) => {
                     if (blob) resolve(blob);
-                    else reject(new Error('Thumbnail generation failed'));
+                    else reject(new Error('Resizing generation failed'));
                   }, 'image/jpeg', 0.95);
                 } catch (err) {
                   reject(err);
@@ -85,15 +79,24 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
           });
         };
 
-        const thumbBlob = await createThumbnail(file);
-        // Create a new File for thumbnail with _small_ in name
-        const thumbFile = new File([thumbBlob], file.name.replace(/(\.[^.]+)$/, '_small$1'), { type: 'image/jpeg' });
+        // Generate medium (short edge ~600) and small (~200)
+        const MEDIUM_EDGE = 600;
+        const SMALL_EDGE = 200;
+
+        const mediumBlob = await createResizedBlob(file, MEDIUM_EDGE);
+        const smallBlob = await createResizedBlob(file, SMALL_EDGE);
+
+        const mediumFile = new File([mediumBlob], file.name.replace(/(\.[^.]+)$/, '_medium$1'), { type: 'image/jpeg' });
+        const thumbFile = new File([smallBlob], file.name.replace(/(\.[^.]+)$/, '_small$1'), { type: 'image/jpeg' });
+
         const smallURL = await uploadProductImage(thumbFile, initialProduct?.id);
+        const mediumURL = await uploadProductImage(mediumFile, initialProduct?.id);
 
         const imageObj = {
           name: file.name,
           urls: {
             small: smallURL,
+            medium: mediumURL,
             big: bigURL
           }
         };

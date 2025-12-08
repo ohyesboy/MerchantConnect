@@ -8,6 +8,7 @@ export interface Product {
     name: string;
     urls: {
       small?: string; // thumbnail (may be missing for old items)
+      medium?: string; // medium-size image for hero (short edge ~600)
       big: string;    // full-size URL
     };
   }[];

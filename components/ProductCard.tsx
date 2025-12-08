@@ -56,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="aspect-square bg-slate-100 relative overflow-hidden">
         {product.images && product.images.length > 0 ? (
           <img 
-            src={product.images[0].urls.big} 
+            src={product.images[0].urls.medium || product.images[0].urls.big} 
             alt={product.name} 
             className="w-full h-full object-cover cursor-pointer"
             onClick={e => {
