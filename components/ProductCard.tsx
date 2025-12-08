@@ -18,6 +18,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalIndex, setModalIndex] = React.useState<number | null>(null);
+  const touchStartX = React.useRef<number | null>(null);
+  const SWIPE_THRESHOLD = 50; // px
 
   // Keyboard handler for modal: ESC to close, arrows to navigate
   React.useEffect(() => {
@@ -130,7 +132,40 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </>
           )}
 
-          <div className="relative" onClick={e => e.stopPropagation()}>
+          <div
+            className="relative"
+            onClick={e => e.stopPropagation()}
+            onTouchStart={(e) => {
+              if (e.touches && e.touches.length > 0) {
+                touchStartX.current = e.touches[0].clientX;
+              }
+            }}
+            onTouchEnd={(e) => {
+              if (!touchStartX.current) return;
+              const touch = e.changedTouches && e.changedTouches[0];
+              if (!touch) {
+                touchStartX.current = null;
+                return;
+              }
+              const dx = touch.clientX - touchStartX.current;
+              touchStartX.current = null;
+              if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+              // swipe right -> previous, swipe left -> next
+              if (dx > 0) {
+                setModalIndex(prev => {
+                  const n = product.images.length;
+                  const cur = prev === null ? 0 : prev;
+                  return (cur - 1 + n) % n;
+                });
+              } else {
+                setModalIndex(prev => {
+                  const n = product.images.length;
+                  const cur = prev === null ? 0 : prev;
+                  return (cur + 1) % n;
+                });
+              }
+            }}
+          >
             <img src={product.images[modalIndex].urls.big} alt="Full Size" className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl" />
             <button
               className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
