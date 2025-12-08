@@ -4,7 +4,13 @@ export interface Product {
   description: string;
   wholesalePrice: number;
   retailPrice: number;
-  images: string[]; // Firebase Storage URLs
+  images: {
+    name: string;
+    urls: {
+      small?: string; // thumbnail (may be missing for old items)
+      big: string;    // full-size URL
+    };
+  }[];
 
 }
 

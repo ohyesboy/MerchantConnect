@@ -17,17 +17,33 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onEdit
 }) => {
   const [modalOpen, setModalOpen] = React.useState(false);
-  const [modalImage, setModalImage] = React.useState<string | null>(null);
+  const [modalIndex, setModalIndex] = React.useState<number | null>(null);
 
-  // ESC key handler for modal
+  // Keyboard handler for modal: ESC to close, arrows to navigate
   React.useEffect(() => {
     if (!modalOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setModalOpen(false);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModalOpen(false);
+        setModalIndex(null);
+        return;
+      }
+      if (!product.images || product.images.length === 0) return;
+      if (e.key === 'ArrowLeft') {
+        setModalIndex((idx) => {
+          if (idx === null) return 0;
+          return (idx - 1 + product.images.length) % product.images.length;
+        });
+      } else if (e.key === 'ArrowRight') {
+        setModalIndex((idx) => {
+          if (idx === null) return 0;
+          return (idx + 1) % product.images.length;
+        });
+      }
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [modalOpen]);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [modalOpen, product.images]);
 
   return (
     <div 
@@ -44,7 +60,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onClick={e => {
               if (!isAdmin) {
                 e.stopPropagation();
-                setModalImage(product.images[0].urls.big);
+                setModalIndex(0);
                 setModalOpen(true);
               }
             }}
@@ -74,7 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
                 onClick={e => {
                   e.stopPropagation();
-                  setModalImage(imgObj.urls.big);
+                  setModalIndex(idx);
                   setModalOpen(true);
                 }}
               />
@@ -83,13 +99,43 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       )}
       {/* Full Size Image Modal */}
-      {modalOpen && modalImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setModalOpen(false)}>
+      {modalOpen && modalIndex !== null && product.images && product.images[modalIndex] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setModalOpen(false); setModalIndex(null); }}>
+          {/* Prev/Next buttons moved to backdrop side and made larger */}
+          {product.images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
+                  const n = product.images.length;
+                  const cur = prev === null ? 0 : prev;
+                  return (cur - 1 + n) % n;
+                }); }}
+                aria-label="Previous image"
+                className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-16 h-16 flex items-center justify-center shadow-2xl"
+              >
+                <i className="fas fa-chevron-left text-2xl"></i>
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
+                  const n = product.images.length;
+                  const cur = prev === null ? 0 : prev;
+                  return (cur + 1) % n;
+                }); }}
+                aria-label="Next image"
+                className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-16 h-16 flex items-center justify-center shadow-2xl"
+              >
+                <i className="fas fa-chevron-right text-2xl"></i>
+              </button>
+            </>
+          )}
+
           <div className="relative" onClick={e => e.stopPropagation()}>
-            <img src={modalImage} alt="Full Size" className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl" />
+            <img src={product.images[modalIndex].urls.big} alt="Full Size" className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl" />
             <button
-              className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-10 h-10 flex items-center justify-center shadow-lg"
-              onClick={() => setModalOpen(false)}
+              className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setModalOpen(false); setModalIndex(null); }}
+              aria-label="Close image"
             >
               <i className="fas fa-times text-xl"></i>
             </button>
