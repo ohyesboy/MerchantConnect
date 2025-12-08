@@ -8,7 +8,6 @@ interface AdminProductFormProps {
   onClose: (saved?: boolean) => void;
   initialProduct?: Product;
   onSave?: () => void;
-  initialProduct?: Product;
 }
 
 export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, initialProduct }) => {
@@ -36,20 +35,46 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
             const img = new window.Image();
             const reader = new FileReader();
             reader.onload = (ev) => {
-              img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const scale = 100 / Math.min(img.width, img.height);
-                canvas.width = Math.round(img.width * scale);
-                canvas.height = Math.round(img.height * scale);
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  canvas.toBlob(blob => {
+              img.onload = async () => {
+                try {
+                  // Target short edge (px)
+                  const SHORT_EDGE = 200;
+                  const scale = SHORT_EDGE / Math.min(img.width, img.height);
+                  const targetW = Math.round(img.width * scale);
+                  const targetH = Math.round(img.height * scale);
+
+                  // Render at a higher internal resolution (devicePixelRatio) then downscale
+                  const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+                  const hiW = Math.round(targetW * ratio);
+                  const hiH = Math.round(targetH * ratio);
+
+                  const hiCanvas = document.createElement('canvas');
+                  hiCanvas.width = hiW;
+                  hiCanvas.height = hiH;
+                  const hiCtx = hiCanvas.getContext('2d');
+                  if (!hiCtx) return reject(new Error('Canvas context error'));
+                  hiCtx.imageSmoothingEnabled = true;
+                  hiCtx.imageSmoothingQuality = 'high';
+                  hiCtx.drawImage(img, 0, 0, hiW, hiH);
+
+                  // Final canvas at the exact target size
+                  const finalCanvas = document.createElement('canvas');
+                  finalCanvas.width = targetW;
+                  finalCanvas.height = targetH;
+                  const fctx = finalCanvas.getContext('2d');
+                  if (!fctx) return reject(new Error('Canvas context error'));
+                  fctx.imageSmoothingEnabled = true;
+                  fctx.imageSmoothingQuality = 'high';
+                  // Draw the high-res canvas into final canvas for high-quality downsampling
+                  fctx.drawImage(hiCanvas, 0, 0, targetW, targetH);
+
+                  // Use high JPEG quality; adjust as needed (0.9-0.98)
+                  finalCanvas.toBlob((blob) => {
                     if (blob) resolve(blob);
                     else reject(new Error('Thumbnail generation failed'));
-                  }, 'image/jpeg', 0.85);
-                } else {
-                  reject(new Error('Canvas context error'));
+                  }, 'image/jpeg', 0.95);
+                } catch (err) {
+                  reject(err);
                 }
               };
               img.onerror = reject;
