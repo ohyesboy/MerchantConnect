@@ -17,7 +17,8 @@ import {
   onSnapshot,
   query,
   orderBy,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { 
   getStorage, 
@@ -109,6 +110,23 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
 export const addProduct = async (product: Omit<Product, 'id'>) => {
   if (!db) throw new Error("Database not initialized");
   await addDoc(collection(db, "products"), product);
+};
+
+export const addProductWithRef = async (product: Omit<Product, 'id'>) => {
+  if (!db) throw new Error("Database not initialized");
+  const docRef = await addDoc(collection(db, "products"), product);
+  return docRef;
+};
+
+export const deleteProduct = async (id: string) => {
+  if (!db) throw new Error("Database not initialized");
+  const docRef = doc(db, "products", id);
+  try {
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.error('Failed to delete product', id, err);
+    throw err;
+  }
 };
 
 export const updateProduct = async (id: string, product: Partial<Omit<Product, 'id'>>) => {

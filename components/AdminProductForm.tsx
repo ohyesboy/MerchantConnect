@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { analyzeProductImage } from '../services/geminiService';
 import { addProduct, updateProduct, uploadProductImage, deleteProductImage } from '../services/firebaseService';
+import { useEffect, useRef } from 'react';
 
 interface AdminProductFormProps {
-  onClose: () => void;
+  onClose: (saved?: boolean) => void;
+  initialProduct?: Product;
+  onSave?: () => void;
   initialProduct?: Product;
 }
 
 export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, initialProduct }) => {
+  // ...existing code...
   const [name, setName] = useState(initialProduct?.name || '');
   const [description, setDescription] = useState(initialProduct?.description || '');
   const [wholesalePrice, setWholesalePrice] = useState(initialProduct?.wholesalePrice?.toString() || '');
   const [retailPrice, setRetailPrice] = useState(initialProduct?.retailPrice?.toString() || '');
-  const [images, setImages] = useState<string[]>(initialProduct?.images || []);
+  const [images, setImages] = useState<any[]>(initialProduct?.images || []);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -22,12 +26,61 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setUploading(true);
-      
       try {
-        // Upload to Firebase Storage
-        const downloadURL = await uploadProductImage(file, initialProduct?.id);
-        setImages(prev => [...prev, downloadURL]);
-        
+        // Upload original image
+        const bigURL = await uploadProductImage(file, initialProduct?.id);
+
+        // Generate thumbnail in browser
+        const createThumbnail = (file: File): Promise<Blob> => {
+          return new Promise((resolve, reject) => {
+            const img = new window.Image();
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = 100 / Math.min(img.width, img.height);
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  canvas.toBlob(blob => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Thumbnail generation failed'));
+                  }, 'image/jpeg', 0.85);
+                } else {
+                  reject(new Error('Canvas context error'));
+                }
+              };
+              img.onerror = reject;
+              img.src = ev.target?.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const thumbBlob = await createThumbnail(file);
+        // Create a new File for thumbnail with _small_ in name
+        const thumbFile = new File([thumbBlob], file.name.replace(/(\.[^.]+)$/, '_small$1'), { type: 'image/jpeg' });
+        const smallURL = await uploadProductImage(thumbFile, initialProduct?.id);
+
+        const imageObj = {
+          name: file.name,
+          urls: {
+            small: smallURL,
+            big: bigURL
+          }
+        };
+
+        setImages(prev => {
+          const newImages = [...prev, imageObj];
+          if (initialProduct) {
+            updateProduct(initialProduct.id, { images: newImages });
+          }
+          return newImages;
+        });
+
         // Trigger Gemini Analysis using base64 for analysis only
         if (name === '' && !analyzing) {
           setAnalyzing(true);
@@ -73,12 +126,10 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
       if (initialProduct) {
         console.log("Updating product:", initialProduct.id);
         await updateProduct(initialProduct.id, productData);
-      } else {
-        console.log("Adding new product");
-        await addProduct(productData);
       }
+      if (typeof onSave === 'function') onSave();
       console.log("Product saved successfully");
-      onClose();
+      onClose(true);
     } catch (err) {
       console.error("Failed to save product:", err);
       alert("Failed to save product: " + (err instanceof Error ? err.message : String(err)));
@@ -94,7 +145,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
           <h2 className="text-xl font-bold text-slate-800">
             {initialProduct ? 'Edit Product' : 'Add New Product'}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => onClose(false)} className="text-slate-400 hover:text-slate-600">
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
@@ -106,17 +157,23 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Product Images</label>
               <div className="flex flex-wrap gap-3">
-                {images.map((img, idx) => (
+                {images.map((imgObj, idx) => (
                   <div key={idx} className="w-20 h-20 rounded-lg overflow-hidden border border-slate-200 relative group">
-                    <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                    <img src={imgObj.urls?.small || imgObj.urls?.big || imgObj.small || imgObj.big || imgObj} alt="Preview" className="w-full h-full object-cover" />
                     <button 
                       type="button"
                       onClick={async () => {
                         // Delete from Storage if it's a Firebase URL (in edit mode)
-                        if (initialProduct && img.includes('firebasestorage.googleapis.com')) {
-                          await deleteProductImage(img);
+                        const urlToDelete = imgObj.urls?.big || imgObj.urls?.small || imgObj.big || imgObj.small || imgObj;
+                        if (initialProduct && urlToDelete && urlToDelete.includes('firebasestorage.googleapis.com')) {
+                          await deleteProductImage(urlToDelete);
                         }
-                        setImages(images.filter((_, i) => i !== idx));
+                        const newImages = images.filter((_, i) => i !== idx);
+                        setImages(newImages);
+                        // If editing an existing product, update images in Firestore immediately
+                        if (initialProduct) {
+                          await updateProduct(initialProduct.id, { images: newImages });
+                        }
                       }}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     >
@@ -203,7 +260,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
             <div className="pt-4 flex justify-end">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => onClose(false)}
                 className="mr-3 px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
               >
                 Cancel

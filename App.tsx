@@ -9,7 +9,9 @@ import {
   logoutUser, 
   getUserProfile,
   subscribeToProducts,
-  updateUserProfile
+  updateUserProfile,
+  addProductWithRef,
+  deleteProduct
 } from './services/firebaseService';
 import { Product, UserProfile, ViewState } from './types';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -27,6 +29,8 @@ const App: React.FC = () => {
   const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [newProductId, setNewProductId] = useState<string | null>(null);
+  const [newProductSaved, setNewProductSaved] = useState(false);
 
   // Initialize Firebase from env on mount
   useEffect(() => {
@@ -195,7 +199,21 @@ const App: React.FC = () => {
           
           {viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (
             <button 
-              onClick={() => { setEditingProduct(undefined); setIsProductFormOpen(true); }}
+              onClick={async () => {
+                // Create product in Firestore and open form
+                const defaultProduct = {
+                  name: '',
+                  description: '',
+                  wholesalePrice: 0,
+                  retailPrice: 0,
+                  images: [],
+                  createdAt: Date.now(),
+                };
+                const docRef = await addProductWithRef(defaultProduct);
+                setEditingProduct({ id: docRef.id, ...defaultProduct });
+                setNewProductId(docRef.id);
+                setIsProductFormOpen(true);
+              }}
               className="mt-4 md:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center"
             >
               <i className="fas fa-plus mr-2"></i> Add Product
@@ -213,6 +231,7 @@ const App: React.FC = () => {
               onToggleSelect={toggleProductSelection}
               isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail}
               onEdit={(p) => { setEditingProduct(p); setIsProductFormOpen(true); }}
+              thumbnails={product.thumbnails}
             />
           ))}
           {products.length === 0 && (
@@ -263,8 +282,23 @@ const App: React.FC = () => {
 
       {isProductFormOpen && (
         <AdminProductForm 
-          onClose={() => setIsProductFormOpen(false)}
+          onClose={async (saved?: boolean) => {
+            // If new product and not saved, delete from Firestore
+            const wasSaved = saved || newProductSaved;
+            if (newProductId && !wasSaved) {
+              try {
+                await deleteProduct(newProductId);
+              } catch (err) {
+                console.error('Failed to delete new product on cancel:', err);
+              }
+            }
+            setIsProductFormOpen(false);
+            setEditingProduct(undefined);
+            setNewProductId(null);
+            setNewProductSaved(false);
+          }}
           initialProduct={editingProduct}
+          onSave={() => setNewProductSaved(true)}
         />
       )}
     </div>
