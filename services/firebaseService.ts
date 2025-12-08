@@ -19,11 +19,18 @@ import {
   orderBy,
   updateDoc
 } from 'firebase/firestore';
+import { 
+  getStorage, 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
+} from 'firebase/storage';
 import { UserProfile, Product } from '../types';
 
 let app: FirebaseApp | undefined;
 let db: any;
 let auth: any;
+let storage: any;
 
 export const initFirebase = (configJson: string) => {
   try {
@@ -35,6 +42,7 @@ export const initFirebase = (configJson: string) => {
     }
     db = getFirestore(app);
     auth = getAuth(app);
+    storage = getStorage(app);
     return true;
   } catch (e) {
     console.error("Invalid Firebase Config", e);
@@ -76,11 +84,24 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
 };
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
-  if (!db) return () => {};
-  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snapshot) => {
-    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  if (!db) {
+    console.error("Database not initialized");
+    return () => {};
+  }
+  console.log("Subscribing to products collection...");
+  // Try without orderBy first to see if products exist
+  const productsRef = collection(db, "products");
+  return onSnapshot(productsRef, (snapshot) => {
+    console.log("Products snapshot received:", snapshot.docs.length, "documents");
+    const products = snapshot.docs.map(doc => {
+      console.log("Product doc:", doc.id, doc.data());
+      return { id: doc.id, ...doc.data() } as Product;
+    });
+    // Sort client-side instead
+    products.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     callback(products);
+  }, (error) => {
+    console.error("Error subscribing to products:", error);
   });
 };
 
@@ -93,4 +114,19 @@ export const updateProduct = async (id: string, product: Partial<Product>) => {
   if (!db) throw new Error("Database not initialized");
   const docRef = doc(db, "products", id);
   await updateDoc(docRef, product);
+};
+
+export const uploadProductImage = async (file: File, productId?: string): Promise<string> => {
+  if (!storage) throw new Error("Storage not initialized");
+  
+  const timestamp = Date.now();
+  const fileName = `${timestamp}_${file.name}`;
+  const path = productId 
+    ? `products/${productId}/${fileName}` 
+    : `products/temp/${fileName}`;
+  
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  return downloadURL;
 };

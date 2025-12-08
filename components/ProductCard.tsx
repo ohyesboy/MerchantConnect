@@ -25,7 +25,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="aspect-square bg-slate-100 relative overflow-hidden">
         {product.images && product.images.length > 0 ? (
           <img 
-            src={product.images[0].startsWith('data:') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`} 
+            src={product.images[0]} 
             alt={product.name} 
             className="w-full h-full object-cover"
           />

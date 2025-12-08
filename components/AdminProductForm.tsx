@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { analyzeProductImage } from '../services/geminiService';
-import { addProduct, updateProduct } from '../services/firebaseService';
+import { addProduct, updateProduct, uploadProductImage } from '../services/firebaseService';
 
 interface AdminProductFormProps {
   onClose: () => void;
@@ -16,32 +16,42 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
   const [images, setImages] = useState<string[]>(initialProduct?.images || []);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        // Strip prefix for Gemini logic, but keep for state display
-        const pureBase64 = base64.split(',')[1];
+      setUploading(true);
+      
+      try {
+        // Upload to Firebase Storage
+        const downloadURL = await uploadProductImage(file, initialProduct?.id);
+        setImages(prev => [...prev, downloadURL]);
         
-        setImages(prev => [...prev, base64]); // Add to local state for preview
-        
-        // Trigger Gemini Analysis
+        // Trigger Gemini Analysis using base64 for analysis only
         if (name === '' && !analyzing) {
-            setAnalyzing(true);
+          setAnalyzing(true);
+          const reader = new FileReader();
+          reader.onloadend = async () => {
             try {
-                const analysis = await analyzeProductImage(pureBase64);
-                if (analysis.name) setName(analysis.name);
-                if (analysis.description) setDescription(analysis.description);
-                if (analysis.retailPriceEstimate) setRetailPrice(analysis.retailPriceEstimate.toString());
+              const base64 = reader.result as string;
+              const pureBase64 = base64.split(',')[1];
+              const analysis = await analyzeProductImage(pureBase64);
+              if (analysis.name) setName(analysis.name);
+              if (analysis.description) setDescription(analysis.description);
+              if (analysis.retailPriceEstimate) setRetailPrice(analysis.retailPriceEstimate.toString());
             } finally {
-                setAnalyzing(false);
+              setAnalyzing(false);
             }
+          };
+          reader.readAsDataURL(file);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Failed to upload image:", err);
+        alert("Failed to upload image. Please try again.");
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -103,12 +113,26 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                     </button>
                   </div>
                 ))}
-                <label className="w-20 h-20 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition text-slate-400 hover:text-blue-500">
-                  <i className="fas fa-camera mb-1"></i>
-                  <span className="text-[10px] font-bold">Add</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <label className={`w-20 h-20 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition text-slate-400 hover:text-blue-500 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+                  {uploading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mb-1"></i>
+                      <span className="text-[10px] font-bold">Uploading</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-camera mb-1"></i>
+                      <span className="text-[10px] font-bold">Add</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
                 </label>
               </div>
+              {uploading && (
+                <div className="mt-2 text-blue-600 text-sm flex items-center animate-pulse">
+                  <i className="fas fa-cloud-upload-alt mr-2"></i> Uploading image...
+                </div>
+              )}
               {analyzing && (
                 <div className="mt-2 text-blue-600 text-sm flex items-center animate-pulse">
                   <i className="fas fa-magic mr-2"></i> Gemini is analyzing image...
@@ -125,7 +149,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
               </div>
 
@@ -137,7 +161,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   required
                   value={wholesalePrice}
                   onChange={(e) => setWholesalePrice(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
               </div>
 
@@ -149,7 +173,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   required
                   value={retailPrice}
                   onChange={(e) => setRetailPrice(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
               </div>
 
@@ -160,7 +184,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
               </div>
             </div>

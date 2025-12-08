@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { SetupForm } from './components/SetupForm';
 import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
@@ -15,64 +14,83 @@ import {
 import { Product, UserProfile, ViewState } from './types';
 import { onAuthStateChanged } from 'firebase/auth';
 
+const adminEmail = import.meta.env.VITE_AdminEmail || '';
+
 const App: React.FC = () => {
-  const [configLoaded, setConfigLoaded] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [viewState, setViewState] = useState<ViewState>(ViewState.SETUP);
+  const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  const [configError, setConfigError] = useState<string | null>(null);
   
   // Modals
   const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
 
-  // 1. Initial Config Handler
-  const handleConfigSubmit = (configStr: string, email: string) => {
-    const success = initFirebase(configStr);
-    if (success) {
-      setAdminEmail(email);
-      setConfigLoaded(true);
-      setViewState(ViewState.LOADING);
-      
-      // Initialize Auth Listener
-      const auth = getFirebaseAuth();
-      onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          // Fetch additional profile data from Firestore
-          let profile = await getUserProfile(firebaseUser.uid);
-          
-          if (!profile) {
-            // New user, save basic info
-            profile = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              firstName: firebaseUser.displayName?.split(' ')[0] || '',
-              lastName: firebaseUser.displayName?.split(' ')[1] || '',
-              phone: '',
-              role: 'merchant' // Default
-            };
-            // In a real app we'd save this to Firestore immediately
-          }
-          
-          setUser(profile);
-          setViewState(ViewState.FEED);
-        } else {
-          setUser(null);
-          setViewState(ViewState.FEED); // Show feed but maybe limit actions
-        }
-      });
+  // Initialize Firebase from env on mount
+  useEffect(() => {
+    const configStr = import.meta.env.VITE_FIREBASE_CONFIG;
+    
+    if (!configStr) {
+      setConfigError('Missing VITE_FIREBASE_CONFIG environment variable');
+      return;
+    }
+    
+    if (!adminEmail) {
+      setConfigError('Missing VITE_AdminEmail environment variable');
+      return;
+    }
 
-      // Subscribe to Products
-      subscribeToProducts((data) => {
+    const success = initFirebase(configStr);
+    if (!success) {
+      setConfigError('Failed to initialize Firebase with provided config');
+      return;
+    }
+
+    // Initialize Auth Listener
+    const auth = getFirebaseAuth();
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch additional profile data from Firestore
+        let profile = await getUserProfile(firebaseUser.uid);
+        
+        if (!profile) {
+          // New user, save basic info
+          profile = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            firstName: firebaseUser.displayName?.split(' ')[0] || '',
+            lastName: firebaseUser.displayName?.split(' ')[1] || '',
+            phone: '',
+            role: 'merchant' // Default
+          };
+          // In a real app we'd save this to Firestore immediately
+        }
+        
+        setUser(profile);
+        setViewState(ViewState.FEED);
+      } else {
+        setUser(null);
+        setViewState(ViewState.FEED); // Show feed but maybe limit actions
+      }
+    });
+
+    // Subscribe to Products
+    let unsubscribeProducts: (() => void) | undefined;
+    try {
+      unsubscribeProducts = subscribeToProducts((data) => {
         setProducts(data);
       });
-
-    } else {
-      alert("Failed to initialize Firebase with provided config.");
+    } catch (err) {
+      console.error("Failed to subscribe to products:", err);
     }
-  };
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProducts) unsubscribeProducts();
+    };
+  }, []);
 
   const handleLogin = async () => {
     try {
@@ -98,8 +116,16 @@ const App: React.FC = () => {
 
   // Rendering
 
-  if (!configLoaded) {
-    return <SetupForm onComplete={handleConfigSubmit} />;
+  if (configError) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+        <div className="bg-white p-8 rounded-xl shadow-lg max-w-lg text-center">
+          <i className="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Configuration Error</h2>
+          <p className="text-slate-600">{configError}</p>
+        </div>
+      </div>
+    );
   }
 
   if (viewState === ViewState.LOADING) {

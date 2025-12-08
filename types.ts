@@ -5,7 +5,7 @@ export interface Product {
   wholesalePrice: number;
   retailPrice: number;
   images: string[]; // Base64 strings for simplicity in this demo
-  createdAt: number;
+
 }
 
 export interface UserProfile {
@@ -23,7 +23,6 @@ export interface AppConfig {
 }
 
 export enum ViewState {
-  SETUP,
   FEED,
   ADMIN_DASHBOARD,
   LOADING
