@@ -1,10 +1,10 @@
 export interface Product {
-  id: string;
+  id: string; // Firestore document ID (not stored in document, added on read)
   name: string;
   description: string;
   wholesalePrice: number;
   retailPrice: number;
-  images: string[]; // Base64 strings for simplicity in this demo
+  images: string[]; // Firebase Storage URLs
 
 }
 

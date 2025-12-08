@@ -23,7 +23,8 @@ import {
   getStorage, 
   ref, 
   uploadBytes, 
-  getDownloadURL 
+  getDownloadURL,
+  deleteObject 
 } from 'firebase/storage';
 import { UserProfile, Product } from '../types';
 
@@ -110,7 +111,7 @@ export const addProduct = async (product: Omit<Product, 'id'>) => {
   await addDoc(collection(db, "products"), product);
 };
 
-export const updateProduct = async (id: string, product: Partial<Product>) => {
+export const updateProduct = async (id: string, product: Partial<Omit<Product, 'id'>>) => {
   if (!db) throw new Error("Database not initialized");
   const docRef = doc(db, "products", id);
   await updateDoc(docRef, product);
@@ -129,4 +130,18 @@ export const uploadProductImage = async (file: File, productId?: string): Promis
   await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(storageRef);
   return downloadURL;
+};
+
+export const deleteProductImage = async (imageUrl: string): Promise<void> => {
+  if (!storage) throw new Error("Storage not initialized");
+  
+  try {
+    // Create a reference from the URL
+    const storageRef = ref(storage, imageUrl);
+    await deleteObject(storageRef);
+    console.log("Image deleted from storage:", imageUrl);
+  } catch (err) {
+    console.error("Failed to delete image from storage:", err);
+    // Don't throw - image might already be deleted or URL might be invalid
+  }
 };

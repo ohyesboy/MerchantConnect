@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { analyzeProductImage } from '../services/geminiService';
-import { addProduct, updateProduct, uploadProductImage } from '../services/firebaseService';
+import { addProduct, updateProduct, uploadProductImage, deleteProductImage } from '../services/firebaseService';
 
 interface AdminProductFormProps {
   onClose: () => void;
@@ -59,24 +59,29 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
     e.preventDefault();
     setSaving(true);
     try {
-      const productData = {
+      const productData: any = {
         name,
         description,
         wholesalePrice: parseFloat(wholesalePrice),
         retailPrice: parseFloat(retailPrice),
         images,
-        createdAt: initialProduct ? initialProduct.createdAt : Date.now()
+        createdAt: initialProduct?.createdAt || Date.now(),
       };
 
+      console.log("Saving product data:", productData);
+
       if (initialProduct) {
+        console.log("Updating product:", initialProduct.id);
         await updateProduct(initialProduct.id, productData);
       } else {
+        console.log("Adding new product");
         await addProduct(productData);
       }
+      console.log("Product saved successfully");
       onClose();
     } catch (err) {
-      console.error(err);
-      alert("Failed to save product");
+      console.error("Failed to save product:", err);
+      alert("Failed to save product: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
     }
@@ -106,7 +111,13 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                     <img src={img} alt="Preview" className="w-full h-full object-cover" />
                     <button 
                       type="button"
-                      onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                      onClick={async () => {
+                        // Delete from Storage if it's a Firebase URL (in edit mode)
+                        if (initialProduct && img.includes('firebasestorage.googleapis.com')) {
+                          await deleteProductImage(img);
+                        }
+                        setImages(images.filter((_, i) => i !== idx));
+                      }}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     >
                       <i className="fas fa-times"></i>
