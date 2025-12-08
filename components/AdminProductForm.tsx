@@ -26,10 +26,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
       const file = e.target.files[0];
       setUploading(true);
       try {
-        // Upload original image
-        const bigURL = await uploadProductImage(file, initialProduct?.id);
-
-        // Helper to generate resized blob by short edge
+        // Helper to generate resized blob by short edge (will not upscale)
         const createResizedBlob = (file: File, SHORT_EDGE: number): Promise<Blob> => {
           return new Promise((resolve, reject) => {
             const img = new window.Image();
@@ -37,7 +34,10 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
             reader.onload = (ev) => {
               img.onload = async () => {
                 try {
-                  const scale = SHORT_EDGE / Math.min(img.width, img.height);
+                  // Do not upscale: use the smaller of requested SHORT_EDGE and the image's short edge
+                  const imgShort = Math.min(img.width, img.height);
+                  const useEdge = Math.min(SHORT_EDGE, imgShort);
+                  const scale = useEdge / imgShort;
                   const targetW = Math.round(img.width * scale);
                   const targetH = Math.round(img.height * scale);
 
@@ -79,18 +79,25 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
           });
         };
 
-        // Generate medium (short edge ~600) and small (~200)
+        // Generate medium (short edge ~600), small (~200), and big (short edge up to 2000 but not upscaled)
         const MEDIUM_EDGE = 600;
         const SMALL_EDGE = 200;
+        const BIG_EDGE = 2000;
 
+        // Generate blobs
         const mediumBlob = await createResizedBlob(file, MEDIUM_EDGE);
         const smallBlob = await createResizedBlob(file, SMALL_EDGE);
+        const bigBlob = await createResizedBlob(file, BIG_EDGE);
 
+        // Create files with suffixes
         const mediumFile = new File([mediumBlob], file.name.replace(/(\.[^.]+)$/, '_medium$1'), { type: 'image/jpeg' });
         const thumbFile = new File([smallBlob], file.name.replace(/(\.[^.]+)$/, '_small$1'), { type: 'image/jpeg' });
+        const bigFile = new File([bigBlob], file.name.replace(/(\.[^.]+)$/, '_big$1'), { type: 'image/jpeg' });
 
-        const smallURL = await uploadProductImage(thumbFile, initialProduct?.id);
+        // Upload medium first (hero), then small (thumbnails), then big (full-size)
         const mediumURL = await uploadProductImage(mediumFile, initialProduct?.id);
+        const smallURL = await uploadProductImage(thumbFile, initialProduct?.id);
+        const bigURL = await uploadProductImage(bigFile, initialProduct?.id);
 
         const imageObj = {
           name: file.name,
