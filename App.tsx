@@ -85,7 +85,9 @@ const App: React.FC = () => {
     let unsubscribeProducts: (() => void) | undefined;
     try {
       unsubscribeProducts = subscribeToProducts((data) => {
-        setProducts(data);
+        // Normalize product objects: ensure `stock` is defined (default 0)
+        const normalized = data.map(p => ({ ...p, stock: (p as any).stock ?? 0 }));
+        setProducts(normalized);
       });
     } catch (err) {
       console.error("Failed to subscribe to products:", err);
@@ -184,20 +186,11 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 w-full">
         
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              {viewState === ViewState.ADMIN_DASHBOARD ? 'Product Management' : 'Available Inventory'}
-            </h1>
-            <p className="text-slate-500 mt-1">
-              {viewState === ViewState.ADMIN_DASHBOARD 
-                ? 'Manage your catalog and pricing.' 
-                : 'Select products you want to stock for your store.'}
-            </p>
-          </div>
+
           
 {viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (     
          <button 
@@ -247,7 +240,7 @@ const App: React.FC = () => {
 
       {/* Sticky Action Bar for Merchants */}
       {viewState === ViewState.FEED && selectedProducts.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/80 border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 p-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center">
               <div className="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-sm mr-3">

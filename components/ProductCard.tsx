@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Product } from '../types';
 
@@ -52,13 +53,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       className={`relative group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-transparent'}`}
       onClick={() => !isAdmin && onToggleSelect(product)}
     >
+
       {/* Image Section */}
       <div className="aspect-square bg-slate-100 relative overflow-hidden">
         {product.images && product.images.length > 0 ? (
           <img 
             src={product.images[0].urls.medium || product.images[0].urls.big} 
             alt={product.name} 
-            className="w-full h-full object-cover cursor-pointer"
+            className={`w-full h-full object-cover cursor-pointer`}
             onClick={e => {
               if (!isAdmin) {
                 e.stopPropagation();
@@ -88,7 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 key={idx}
                 src={imgObj.urls.small}
                 alt={`Thumbnail ${idx + 1}`}
-                className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shadow cursor-pointer"
+                className={`w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shadow cursor-pointer`}
                 style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
                 onClick={e => {
                   e.stopPropagation();
@@ -103,37 +105,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Full Size Image Modal */}
       {modalOpen && modalIndex !== null && product.images && product.images[modalIndex] && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setModalOpen(false); setModalIndex(null); }}>
-          {/* Prev/Next buttons moved to backdrop side and made larger */}
-          {product.images.length > 1 && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
-                  const n = product.images.length;
-                  const cur = prev === null ? 0 : prev;
-                  return (cur - 1 + n) % n;
-                }); }}
-                aria-label="Previous image"
-                className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-16 h-16 flex items-center justify-center shadow-2xl"
-              >
-                <i className="fas fa-chevron-left text-2xl"></i>
-              </button>
-
-              <button
-                onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
-                  const n = product.images.length;
-                  const cur = prev === null ? 0 : prev;
-                  return (cur + 1) % n;
-                }); }}
-                aria-label="Next image"
-                className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-16 h-16 flex items-center justify-center shadow-2xl"
-              >
-                <i className="fas fa-chevron-right text-2xl"></i>
-              </button>
-            </>
-          )}
-
           <div
-            className="relative"
+            className="relative flex items-center justify-center"
+            style={{ width: '100%', height: '100%' }}
             onClick={e => e.stopPropagation()}
             onTouchStart={(e) => {
               if (e.touches && e.touches.length > 0) {
@@ -166,24 +140,59 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               }
             }}
           >
-            <img src={product.images[modalIndex].urls.big} alt="Full Size" className="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl" />
-            <button
-              className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+            {/* Adaptive nav buttons at image edge */}
+            {product.images.length > 1 && (
+              <>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
+                    const n = product.images.length;
+                    const cur = prev === null ? 0 : prev;
+                    return (cur - 1 + n) % n;
+                  }); }}
+                  aria-label="Previous image"
+                    className="absolute left-10 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl "
+                  style={{ zIndex: 2 }}
+                >
+                  <i className="fas fa-chevron-left text-2xl"></i>
+                </button>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
+                    const n = product.images.length;
+                    const cur = prev === null ? 0 : prev;
+                    return (cur + 1) % n;
+                  }); }}
+                  aria-label="Next image"
+                    className="absolute right-10 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl "
+                  style={{ zIndex: 2 }}
+                >
+                  <i className="fas fa-chevron-right text-2xl"></i>
+                </button>
+              </>
+            )}
+            <img
+              src={product.images[modalIndex].urls.big}
+              alt="Full Size"
               onClick={(e) => { e.stopPropagation(); setModalOpen(false); setModalIndex(null); }}
-              aria-label="Close image"
-            >
-              <i className="fas fa-times text-xl"></i>
-            </button>
+              className="max-w-[95vw] max-h-[90vh] rounded-xl shadow-2xl"
+              style={{ display: 'block', margin: '0 auto', position: 'relative', zIndex: 1 }}
+            />
           </div>
         </div>
       )}
 
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-semibold text-slate-800 text-lg leading-tight">{product.name}</h3>
+          <h3 className="font-semibold text-slate-800 text-lg leading-tight">{product.name}</h3> 
+          {!product.stock  && (
+            <span className="text-sm text-amber-600/70 font-semibold">restocking</span>
+          )}
+          {!!product.stock  && (
+            <span className="text-sm text-green-600/70 font-semibold">in stock {product.stock}</span>
+          )}
         </div>
         
-        <p className="text-slate-500 text-sm line-clamp-2 mb-4 h-10">{product.description}</p>
 
         <div className="flex justify-between items-end border-t pt-3 border-slate-100">
           <div>

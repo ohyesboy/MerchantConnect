@@ -12,6 +12,7 @@ export interface Product {
       big: string;    // full-size URL
     };
   }[];
+  stock?: number;
 
 }
 
