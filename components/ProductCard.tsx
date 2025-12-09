@@ -19,8 +19,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalIndex, setModalIndex] = React.useState<number | null>(null);
+  const [quantity, setQuantity] = React.useState<number>(1);
   const touchStartX = React.useRef<number | null>(null);
   const SWIPE_THRESHOLD = 50; // px
+
+  React.useEffect(() => {
+    // Clamp quantity if stock changes and is lower than current quantity
+    if (product.stock !== undefined && product.stock > 0 && quantity > product.stock) {
+      setQuantity(30); //Math.min(30, product.stock)
+    }
+    if ((product.stock === 0 || product.stock === undefined) && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [product.stock]);
 
   // Keyboard handler for modal: ESC to close, arrows to navigate
   React.useEffect(() => {
@@ -48,10 +59,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return () => window.removeEventListener('keydown', handleKey);
   }, [modalOpen, product.images]);
 
+  const selectable = !isAdmin && (product.stock ?? 0) > 0;
+
   return (
     <div 
-      className={`relative group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-transparent'}`}
-      onClick={() => !isAdmin && onToggleSelect(product)}
+      className={`relative group bg-white rounded-xl shadow-sm ${selectable ? 'hover:shadow-md' : ''} transition-all duration-300 overflow-hidden border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-transparent'} ${selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-95'}`}
+      onClick={() => selectable && onToggleSelect(product)}
     >
 
       {/* Image Section */}
@@ -76,7 +89,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
         {/* Selection Indicator Overlay */}
         {!isAdmin && (
-          <div className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-white/80 text-slate-400 hover:bg-white'}`}>
+          <div className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : (selectable ? 'bg-white/80 text-slate-400 hover:bg-white' : 'bg-white/20 text-slate-300')}`}> 
             <i className={`fas ${isSelected ? 'fa-check' : 'fa-plus'} text-lg`}></i>
           </div>
         )}
@@ -185,14 +198,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold text-slate-800 text-lg leading-tight">{product.name}</h3> 
-          {!product.stock  && (
-            <span className="text-sm text-amber-600/70 font-semibold">restocking</span>
+   
+        </div>
+        <div className="flex items-center gap-3">
+          {!product.stock && (
+            <span className="text-sm text-amber-600/70 font-semibold">Restocking</span>
           )}
-          {!!product.stock  && (
-            <span className="text-sm text-green-600/70 font-semibold">in stock {product.stock}</span>
+          {!!product.stock && (
+            <>
+              <span className="text-sm text-green-600/70 font-semibold">In Stock</span>
+              <label className="sr-only" htmlFor={`qty-${product.id}`}>Quantity</label>
+              <select
+                id={`qty-${product.id}`}
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+                className="text-sm border border-slate-200 rounded px-2 py-1 bg-white"
+                title="Quantity"
+              >
+                {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </>
           )}
         </div>
-        
 
         <div className="flex justify-between items-end border-t pt-3 border-slate-100">
           <div>
