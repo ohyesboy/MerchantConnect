@@ -24,7 +24,8 @@ const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  // selectionMap: productId -> quantity
+  const [selectionMap, setSelectionMap] = useState<Record<string, number>>({});
   const [configError, setConfigError] = useState<string | null>(null);
   // Optional HTML logo from environment. If provided, it will replace the text logo.
   const logoHtml = (import.meta.env.VITE_LOGOHTML as string) || '';
@@ -171,12 +172,23 @@ const App: React.FC = () => {
     setUser(null);
   };
 
-  const toggleProductSelection = (product: Product) => {
-    if (selectedProducts.find(p => p.id === product.id)) {
-      setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
-    } else {
-      setSelectedProducts(prev => [...prev, product]);
-    }
+  const toggleProductSelection = (product: Product, qty?: number) => {
+    setSelectionMap(prev => {
+      const next = { ...prev };
+      const id = product.id;
+      if (typeof qty === 'number') {
+        if (qty <= 0) {
+          delete next[id];
+        } else {
+          next[id] = qty;
+        }
+      } else {
+        // toggle: if present remove, else set to 1
+        if (next[id]) delete next[id];
+        else next[id] = 1;
+      }
+      return next;
+    });
   };
 
   // Ensure initial visibleCount and update when products change
@@ -231,6 +243,17 @@ const App: React.FC = () => {
   }, [products.length, filteredProducts.length, getColumnsForWidth, searchTerm]);
 
   // Rendering
+
+  // Selected summary: use quantities from selectionMap and wholesalePrice for totals
+  const selectedCount = useMemo(() => Object.values(selectionMap).reduce((s, v) => s + v, 0), [selectionMap]);
+  const selectedTotal = useMemo(() => {
+    return Object.entries(selectionMap).reduce((sum, [id, qty]) => {
+      const prod = products.find(p => p.id === id);
+      if (!prod) return sum;
+      return sum + ((typeof prod.wholesalePrice === 'number' ? prod.wholesalePrice : 0) * qty);
+    }, 0);
+  }, [selectionMap, products]);
+  const fmtCurrency = (n: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
 
   if (configError) {
     return (
@@ -392,11 +415,10 @@ const App: React.FC = () => {
             <ProductCard 
               key={product.id} 
               product={product} 
-              isSelected={!!selectedProducts.find(p => p.id === product.id)}
+              isSelected={!!selectionMap[product.id]}
               onToggleSelect={toggleProductSelection}
               isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail}
               onEdit={(p) => { setEditingProduct(p); setIsProductFormOpen(true); }}
-              thumbnails={product.thumbnails}
             />
             ))
           )}
@@ -413,15 +435,12 @@ const App: React.FC = () => {
       </main>
 
       {/* Sticky Action Bar for Merchants */}
-      {viewState === ViewState.FEED && selectedProducts.length > 0 && (
+      {viewState === ViewState.FEED && selectedCount > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 p-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-sm mr-3">
-                {selectedProducts.length}
+              <div className="flex items-center">
+                <span className="text-slate-700 font-medium">{selectedCount} {selectedCount === 1 ? 'item' : 'items'}, {fmtCurrency(selectedTotal)} total</span>
               </div>
-              <span className="text-slate-700 font-medium">Products Selected</span>
-            </div>
             <button 
               onClick={() => {
                 if (!user) {
@@ -443,7 +462,7 @@ const App: React.FC = () => {
         <InterestedModal 
           isOpen={isInterestModalOpen}
           onClose={() => setIsInterestModalOpen(false)}
-          selectedProducts={selectedProducts}
+          selectedProducts={Object.keys(selectionMap).map(id => products.find(p => p.id === id)).filter(Boolean) as Product[]}
           currentUser={user}
           adminEmail={adminEmail}
         />

@@ -6,7 +6,7 @@ import { Product } from '../types';
 interface ProductCardProps {
   product: Product;
   isSelected: boolean;
-  onToggleSelect: (product: Product) => void;
+  onToggleSelect: (product: Product, qty?: number) => void;
   isAdmin: boolean;
   onEdit?: (product: Product) => void;
 }
@@ -55,12 +55,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   }, [modalOpen]);
 
   React.useEffect(() => {
-    // Clamp quantity if stock changes and is lower than current quantity
-    if (product.stock !== undefined && product.stock > 0 && quantity > product.stock) {
-      setQuantity(Math.min(30, product.stock));
-    }
-    if ((product.stock === 0 || product.stock === undefined) && quantity !== 0) {
-      setQuantity(0);
+    // Ensure quantity never exceeds 10 (we always show 0-10 dropdown)
+    if (quantity > 10) {
+      setQuantity(10);
     }
   }, [product.stock]);
 
@@ -130,7 +127,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {!isAdmin && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); if (selectable) onToggleSelect(product); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!selectable) return;
+              if (isSelected) {
+                onToggleSelect(product, 0);
+              } else {
+                const qtyToSet = quantity > 0 ? quantity : 1;
+                onToggleSelect(product, qtyToSet);
+              }
+            }}
             aria-pressed={isSelected}
             aria-label={isSelected ? 'Deselect product' : 'Select product'}
             className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors focus:outline-none ${isSelected ? 'bg-blue-500 text-white' : (selectable ? 'bg-white/80 text-slate-400 hover:bg-white cursor-pointer' : 'bg-white/20 text-slate-300 cursor-not-allowed')}`}
@@ -273,37 +279,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({
            {product.hidden && (
             <span className="text-sm text-red-600/70 font-semibold">Hidden</span>
           )}
-          {!product.stock && (
+          {/* Show status label */}
+          {product.stock ? (
+            <span className="text-sm text-green-600/70 font-semibold">In Stock</span>
+          ) : (
             <span className="text-sm text-amber-600/70 font-semibold">Restocking</span>
           )}
-          {!!product.stock && (
-            <>
-              <span className="text-sm text-green-600/70 font-semibold">In Stock</span>
-              <label className="sr-only" htmlFor={`qty-${product.id}`}>Quantity</label>
-              <select
-                id={`qty-${product.id}`}
-                value={quantity}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  setQuantity(n);
-                  // if user sets quantity to 0, deselect the card
-                  if (n === 0 && isSelected) {
-                    onToggleSelect(product);
-                  }
-                  // if user sets quantity > 0 and card isn't selected, select it (if selectable)
-                  if (n > 0 && !isSelected && selectable) {
-                    onToggleSelect(product);
-                  }
-                }}
-                className="text-sm border border-slate-200 rounded px-2 py-1 bg-white"
-                title="Quantity"
-              >
-                {Array.from({ length: Math.min(30, product.stock ?? 10) + 1 }, (_, i) => i).map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </>
-          )}
+
+          {/* Quantity dropdown: always show 0-10 regardless of stock */}
+          <label className="sr-only" htmlFor={`qty-${product.id}`}>Quantity</label>
+          <select
+            id={`qty-${product.id}`}
+            value={quantity}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              setQuantity(n);
+              // Always inform parent of new quantity (0 will remove selection)
+              onToggleSelect(product, n);
+            }}
+            className="text-sm border border-slate-200 rounded px-2 py-1 bg-white"
+            title="Quantity"
+          >
+            {Array.from({ length: 11 }, (_, i) => i).map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex justify-between items-end border-t pt-3 border-slate-100">
