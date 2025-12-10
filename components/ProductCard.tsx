@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Product } from '../types';
 
 interface ProductCardProps {
@@ -19,19 +20,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalIndex, setModalIndex] = React.useState<number | null>(null);
-  const [quantity, setQuantity] = React.useState<number>(1);
+  const [quantity, setQuantity] = React.useState<number>(0);
   const touchStartX = React.useRef<number | null>(null);
   const SWIPE_THRESHOLD = 50; // px
+
+  // Prevent background page scrolling when modal is open
+  React.useEffect(() => {
+    if (!modalOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev || '';
+    };
+  }, [modalOpen]);
 
   React.useEffect(() => {
     // Clamp quantity if stock changes and is lower than current quantity
     if (product.stock !== undefined && product.stock > 0 && quantity > product.stock) {
-      setQuantity(30); //Math.min(30, product.stock)
+      setQuantity(Math.min(30, product.stock));
     }
-    if ((product.stock === 0 || product.stock === undefined) && quantity !== 1) {
-      setQuantity(1);
+    if ((product.stock === 0 || product.stock === undefined) && quantity !== 0) {
+      setQuantity(0);
     }
   }, [product.stock]);
+
+  // When selection changes: if selected -> ensure quantity at least 1; if unselected -> reset to 0
+  React.useEffect(() => {
+    if (isSelected) {
+      setQuantity(prev => (prev === 0 ? 1 : prev));
+    } else {
+      setQuantity(0);
+    }
+  }, [isSelected]);
 
   // Keyboard handler for modal: ESC to close, arrows to navigate
   React.useEffect(() => {
@@ -63,8 +83,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div 
-      className={`relative group bg-white rounded-xl shadow-sm ${selectable ? 'hover:shadow-md' : ''} transition-all duration-300 overflow-hidden border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-transparent'} ${selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-95'}`}
-      onClick={() => selectable && onToggleSelect(product)}
+      className={`relative group bg-white rounded-xl shadow-sm ${selectable ? 'hover:shadow-md' : ''} transition-all duration-300 overflow-hidden border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-transparent'} ${selectable ? '' : 'cursor-not-allowed opacity-95'}`}
     >
 
       {/* Image Section */}
@@ -87,11 +106,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <i className="fas fa-image text-4xl"></i>
           </div>
         )}
-        {/* Selection Indicator Overlay */}
+        {/* Selection Indicator Overlay (click only on this button toggles selection) */}
         {!isAdmin && (
-          <div className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : (selectable ? 'bg-white/80 text-slate-400 hover:bg-white' : 'bg-white/20 text-slate-300')}`}> 
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); if (selectable) onToggleSelect(product); }}
+            aria-pressed={isSelected}
+            aria-label={isSelected ? 'Deselect product' : 'Select product'}
+            className={`absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center transition-colors focus:outline-none ${isSelected ? 'bg-blue-500 text-white' : (selectable ? 'bg-white/80 text-slate-400 hover:bg-white cursor-pointer' : 'bg-white/20 text-slate-300 cursor-not-allowed')}`}
+          >
             <i className={`fas ${isSelected ? 'fa-check' : 'fa-plus'} text-lg`}></i>
-          </div>
+          </button>
         )}
       </div>
       {/* Thumbnails Row (non-admin mode) */}
@@ -115,9 +140,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ))}
         </div>
       )}
-      {/* Full Size Image Modal */}
-      {modalOpen && modalIndex !== null && product.images && product.images[modalIndex] && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setModalOpen(false); setModalIndex(null); }}>
+      {/* Full Size Image Modal (rendered in a portal so it overlays the whole page) */}
+      {modalOpen && modalIndex !== null && product.images && product.images[modalIndex] && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setModalOpen(false); setModalIndex(null); }}>
           <div
             className="relative flex items-center justify-center"
             style={{ width: '100%', height: '100%' }}
@@ -156,7 +181,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Adaptive nav buttons at image edge */}
             {product.images.length > 1 && (
               <>
-
                 <button
                   onClick={(e) => { e.stopPropagation(); setModalIndex(prev => {
                     const n = product.images.length;
@@ -164,7 +188,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     return (cur - 1 + n) % n;
                   }); }}
                   aria-label="Previous image"
-                    className="absolute left-10 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl "
+                  className="absolute left-10 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl"
                   style={{ zIndex: 2 }}
                 >
                   <i className="fas fa-chevron-left text-2xl"></i>
@@ -177,7 +201,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     return (cur + 1) % n;
                   }); }}
                   aria-label="Next image"
-                    className="absolute right-10 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl "
+                  className="absolute right-10 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/30 hover:bg-white/50 text-slate-700 rounded-full w-12 h-12 flex items-center justify-center shadow-2xl"
                   style={{ zIndex: 2 }}
                 >
                   <i className="fas fa-chevron-right text-2xl"></i>
@@ -193,7 +217,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             />
           </div>
         </div>
-      )}
+      , document.body)}
 
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
@@ -211,11 +235,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <select
                 id={`qty-${product.id}`}
                 value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setQuantity(n);
+                  // if user sets quantity to 0, deselect the card
+                  if (n === 0 && isSelected) {
+                    onToggleSelect(product);
+                  }
+                  // if user sets quantity > 0 and card isn't selected, select it (if selectable)
+                  if (n > 0 && !isSelected && selectable) {
+                    onToggleSelect(product);
+                  }
+                }}
                 className="text-sm border border-slate-200 rounded px-2 py-1 bg-white"
                 title="Quantity"
               >
-                {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                {Array.from({ length: Math.min(30, product.stock ?? 10) + 1 }, (_, i) => i).map(n => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>

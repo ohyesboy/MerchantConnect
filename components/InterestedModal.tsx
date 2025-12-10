@@ -65,6 +65,18 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
     }
   }, [isOpen, currentUser]);
 
+  // Close modal on Escape key when open
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
