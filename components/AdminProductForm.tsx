@@ -17,6 +17,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
   const [wholesalePrice, setWholesalePrice] = useState(initialProduct?.wholesalePrice?.toString() || '');
   const [retailPrice, setRetailPrice] = useState(initialProduct?.retailPrice?.toString() || '');
   const [images, setImages] = useState<any[]>(initialProduct?.images || []);
+  const [hidden, setHidden] = useState<boolean>(!!initialProduct?.hidden);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -154,6 +155,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         retailPrice: parseFloat(retailPrice),
         images,
         createdAt: initialProduct?.createdAt || Date.now(),
+        hidden: !!hidden,
       };
 
       console.log("Saving product data:", productData);
@@ -290,6 +292,14 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
               </div>
+            </div>
+
+            <div className="mt-2">
+              <label className="inline-flex items-center">
+                <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} className="mr-2" />
+                <span className="text-sm text-slate-700">Hide from public feed</span>
+              </label>
+              <p className="text-xs text-slate-400 mt-1">Hidden products are not visible in the public feed but remain visible in Admin view.</p>
             </div>
 
             <div className="pt-4 flex justify-end">

@@ -271,6 +271,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
    
         </div>
         <div className="flex items-center gap-3">
+           {product.hidden && (
+            <span className="text-sm text-red-600/70 font-semibold">Hidden</span>
+          )}
           {!product.stock && (
             <span className="text-sm text-amber-600/70 font-semibold">Restocking</span>
           )}

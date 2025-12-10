@@ -39,8 +39,8 @@ const App: React.FC = () => {
   // Search
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Lazy-loading: show 2 rows per batch
-  const ROWS_PER_BATCH = 2;
+
+  const ROWS_PER_BATCH = 4;
   const [visibleCount, setVisibleCount] = useState<number>(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
     const cols = w >= 1280 ? 4 : w >= 1024 ? 3 : w >= 640 ? 2 : 1;
@@ -56,23 +56,28 @@ const App: React.FC = () => {
     return 1;
   }, []);
 
+  const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && (user?.email || '').trim().toLowerCase() === normalizedAdminEmail;
+  const visibleSourceProducts = isAdmin ? products : products.filter(p => !(p as any).hidden);
+
   // Filtered products based on search. If search is empty, returns full products list.
   const filteredProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return products;
+    if (!q) return visibleSourceProducts;
     const tokens = q.split(/\s+/).filter(Boolean);
     // Match if any token exists in name or description (OR match)
-    return products.filter(p => {
+    return visibleSourceProducts.filter(p => {
       const hay = ((p.name || '') + ' ' + (p.description || '')).toLowerCase();
       return tokens.some(t => hay.includes(t));
     });
-  }, [products, searchTerm]);
+  }, [visibleSourceProducts, searchTerm]);
 
   // Remote search results (from DB) when user presses Enter
   const [remoteResults, setRemoteResults] = useState<Product[] | null>(null);
   const [isRemoteSearching, setIsRemoteSearching] = useState(false);
 
-  const displayedProducts = remoteResults !== null ? remoteResults : (searchTerm.trim() ? filteredProducts : products);
+  const displayedProducts = remoteResults !== null
+    ? (isAdmin ? remoteResults : remoteResults.filter(p => !(p as any).hidden))
+    : (searchTerm.trim() ? filteredProducts : visibleSourceProducts);
 
   // Initialize Firebase from env on mount
   useEffect(() => {
@@ -182,9 +187,9 @@ const App: React.FC = () => {
     if (searchTerm.trim()) {
       setVisibleCount(Math.min(filteredProducts.length, Math.max(0, filteredProducts.length)));
     } else {
-      setVisibleCount(prev => Math.min(Math.max(prev, batch), products.length || batch));
+      setVisibleCount(prev => Math.min(Math.max(prev, batch), visibleSourceProducts.length || batch));
     }
-  }, [products.length, filteredProducts.length, getColumnsForWidth, searchTerm, remoteResults]);
+  }, [visibleSourceProducts.length, filteredProducts.length, getColumnsForWidth, searchTerm, remoteResults]);
 
   // Handle window resize to update columns and ensure at least one batch visible
   useEffect(() => {
@@ -197,13 +202,13 @@ const App: React.FC = () => {
         if (searchTerm.trim()) {
           setVisibleCount(filteredProducts.length);
         } else {
-          setVisibleCount(prev => Math.max(prev, Math.min(minVisible, products.length)));
+          setVisibleCount(prev => Math.max(prev, Math.min(minVisible, visibleSourceProducts.length)));
         }
       }
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [getColumnsForWidth, products.length]);
+  }, [getColumnsForWidth, visibleSourceProducts.length]);
 
   // IntersectionObserver to load next batches when sentinel intersects
   useEffect(() => {
@@ -214,7 +219,7 @@ const App: React.FC = () => {
           setVisibleCount(prev => {
             const cols = columnsRef.current || getColumnsForWidth(window.innerWidth);
             const batch = cols * ROWS_PER_BATCH;
-            const total = remoteResults !== null ? remoteResults.length : (searchTerm.trim() ? filteredProducts.length : products.length);
+            const total = remoteResults !== null ? (isAdmin ? remoteResults.length : remoteResults.filter(p => !(p as any).hidden).length) : (searchTerm.trim() ? filteredProducts.length : visibleSourceProducts.length);
             return Math.min(prev + batch, total);
           });
         }

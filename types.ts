@@ -13,6 +13,7 @@ export interface Product {
     };
   }[];
   stock?: number;
+  hidden?: boolean;
 
 }
 
