@@ -57,13 +57,15 @@ const App: React.FC = () => {
     const auth = getFirebaseAuth();
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch additional profile data from Firestore
-        let profile = await getUserProfile(firebaseUser.uid);
-        
+        // Use email as the user document ID when available
+        const userKey = firebaseUser.email ? firebaseUser.email : firebaseUser.uid;
+        // Fetch additional profile data from Firestore (users collection keyed by email)
+        let profile = await getUserProfile(userKey);
+
         if (!profile) {
-          // New user, save basic info
+          // New user, save basic info (uid will be email or fallback uid)
           profile = {
-            uid: firebaseUser.uid,
+            uid: userKey,
             email: firebaseUser.email,
             firstName: firebaseUser.displayName?.split(' ')[0] || '',
             lastName: firebaseUser.displayName?.split(' ')[1] || '',
@@ -72,7 +74,7 @@ const App: React.FC = () => {
           };
           // In a real app we'd save this to Firestore immediately
         }
-        
+
         setUser(profile);
         setViewState(ViewState.FEED);
       } else {
@@ -93,9 +95,19 @@ const App: React.FC = () => {
       console.error("Failed to subscribe to products:", err);
     }
 
+    // Listen for profile updates dispatched from modals/components
+    const onProfileUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail as any;
+      if (detail) {
+        setUser(detail as UserProfile);
+      }
+    };
+    window.addEventListener('userProfileUpdated', onProfileUpdated as EventListener);
+
     return () => {
       unsubscribeAuth();
       if (unsubscribeProducts) unsubscribeProducts();
+      window.removeEventListener('userProfileUpdated', onProfileUpdated as EventListener);
     };
   }, []);
 
@@ -160,7 +172,7 @@ const App: React.FC = () => {
                     <span className="text-xs text-slate-500">{user.email}</span>
                   </div>
   
-                   {user.email === adminEmail && (
+                  {((user.email || '').trim().toLowerCase() === normalizedAdminEmail) && (
                     <button 
                       onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
                       className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"

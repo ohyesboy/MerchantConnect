@@ -22,6 +22,13 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   phone: string;
+  businessName?: string;
+  businessAddress?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipcode?: string;
+  };
   role?: 'admin' | 'merchant'; // Basic role handling
 }
 

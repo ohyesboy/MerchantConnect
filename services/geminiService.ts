@@ -1,9 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product, UserProfile } from "../types";
 
-const apiKey = process.env.API_KEY;
+// Prefer Vite env var for front-end builds; fallback to Node env when available
+const apiKey = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GOOGLE_API_KEY) || process.env.API_KEY;
 
-// Initialize the client securely
+// Initialize the client if an API key is available. Note: keeping API keys in client bundles is discouraged.
+// In environments without an API key (e.g., local dev without server-side proxy), we'll skip AI and use fallbacks.
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 /**
@@ -14,7 +16,16 @@ export const generateInterestEmail = async (
   products: Product[],
   adminEmail: string
 ): Promise<{ subject: string; body: string }> => {
-  if (!ai) throw new Error("API Key not found");
+
+  // If AI client is not available, return a safe fallback instead of throwing so the UI can continue.
+  if (!ai) {
+    console.warn('generateInterestEmail: AI client not available, using fallback content');
+    const productListFallback = products.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
+    return {
+      subject: `Interest in ${products.length} products`,
+      body: `Hi,\n\nI am ${user.firstName} ${user.lastName} and am interested in the following products:\n${productListFallback}\n\nPlease contact me at ${user.phone || user.email}.`,
+    };
+  }
 
   const productList = products.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
 
@@ -67,7 +78,10 @@ export const generateInterestEmail = async (
  * Analyzes an image to suggest product details.
  */
 export const analyzeProductImage = async (base64Image: string): Promise<{ name: string; description: string; retailPriceEstimate: number }> => {
-  if (!ai) throw new Error("API Key not found");
+  if (!ai) {
+    console.warn('analyzeProductImage: AI client not available, returning empty analysis');
+    return { name: "", description: "", retailPriceEstimate: 0 };
+  }
 
   const prompt = "Analyze this product image. Provide a catchy product name, a short sales description (max 2 sentences), and an estimated retail price in USD.";
 

@@ -82,7 +82,8 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
   if (!db) throw new Error("Database not initialized");
   const docRef = doc(db, "users", uid);
-  await setDoc(docRef, { ...data, uid }, { merge: true });
+  // Do not inject or overwrite an internal `uid` field; write only provided profile fields.
+  await setDoc(docRef, { ...data }, { merge: true });
 };
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
