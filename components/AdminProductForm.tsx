@@ -18,6 +18,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
   const [retailPrice, setRetailPrice] = useState(initialProduct?.retailPrice?.toString() || '');
   const [images, setImages] = useState<any[]>(initialProduct?.images || []);
   const [hidden, setHidden] = useState<boolean>(!!initialProduct?.hidden);
+  const [stock, setStock] = useState(initialProduct?.stock?.toString() || '1');
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -153,6 +154,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         description,
         wholesalePrice: parseFloat(wholesalePrice),
         retailPrice: parseFloat(retailPrice),
+        stock: Number.parseInt(stock) || 1,
         images,
         createdAt: initialProduct?.createdAt || Date.now(),
         hidden: !!hidden,
@@ -280,6 +282,18 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   onChange={(e) => setRetailPrice(e.target.value)}
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 />
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Stock Amount</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    required
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                  />
+                </div>
               </div>
 
               <div className="col-span-1 md:col-span-2">
