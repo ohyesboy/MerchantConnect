@@ -15,6 +15,7 @@ import {
   setDoc, 
   addDoc, 
   onSnapshot,
+  getDocs,
   query,
   orderBy,
   updateDoc,
@@ -128,6 +129,29 @@ export const deleteProduct = async (id: string) => {
     console.error('Failed to delete product', id, err);
     throw err;
   }
+};
+
+// Simple server-side search: fetch products once and filter by tokens in name/description.
+// Note: Firestore doesn't support full-text contains queries natively; this performs
+// a client-side filter after fetching documents. For large collections, consider
+// integrating Algolia/Elastic or Firebase Extensions (Full-Text Search).
+export const searchProducts = async (queryStr: string): Promise<Product[]> => {
+  if (!db) throw new Error("Database not initialized");
+  const q = queryStr.trim().toLowerCase();
+  if (!q) return [];
+  const tokens = q.split(/\s+/).filter(Boolean);
+
+  const productsRef = collection(db, 'products');
+  const snap = await getDocs(productsRef);
+  const results: Product[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product))
+    .filter(p => {
+      const hay = ((p.name || '') + ' ' + (p.description || '')).toLowerCase();
+      return tokens.some(t => hay.includes(t));
+    });
+
+  // Sort by createdAt desc
+  results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return results;
 };
 
 export const updateProduct = async (id: string, product: Partial<Omit<Product, 'id'>>) => {

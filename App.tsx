@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
@@ -14,6 +14,7 @@ import {
   deleteProduct
 } from './services/firebaseService';
 import { Product, UserProfile, ViewState } from './types';
+import { searchProducts } from './services/firebaseService';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const adminEmail = import.meta.env.VITE_AdminEmail || '';
@@ -33,6 +34,9 @@ const App: React.FC = () => {
   const [newProductId, setNewProductId] = useState<string | null>(null);
   const [newProductSaved, setNewProductSaved] = useState(false);
 
+  // Search
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
   // Lazy-loading: show 2 rows per batch
   const ROWS_PER_BATCH = 2;
   const [visibleCount, setVisibleCount] = useState<number>(() => {
@@ -49,6 +53,24 @@ const App: React.FC = () => {
     if (w >= 640) return 2;  // sm
     return 1;
   }, []);
+
+  // Filtered products based on search. If search is empty, returns full products list.
+  const filteredProducts = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return products;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    // Match if any token exists in name or description (OR match)
+    return products.filter(p => {
+      const hay = ((p.name || '') + ' ' + (p.description || '')).toLowerCase();
+      return tokens.some(t => hay.includes(t));
+    });
+  }, [products, searchTerm]);
+
+  // Remote search results (from DB) when user presses Enter
+  const [remoteResults, setRemoteResults] = useState<Product[] | null>(null);
+  const [isRemoteSearching, setIsRemoteSearching] = useState(false);
+
+  const displayedProducts = remoteResults !== null ? remoteResults : (searchTerm.trim() ? filteredProducts : products);
 
   // Initialize Firebase from env on mount
   useEffect(() => {
@@ -155,8 +177,12 @@ const App: React.FC = () => {
     const cols = getColumnsForWidth(typeof window !== 'undefined' ? window.innerWidth : 1024);
     columnsRef.current = cols;
     const batch = cols * ROWS_PER_BATCH;
-    setVisibleCount(prev => Math.min(Math.max(prev, batch), products.length || batch));
-  }, [products.length, getColumnsForWidth]);
+    if (searchTerm.trim()) {
+      setVisibleCount(Math.min(filteredProducts.length, Math.max(0, filteredProducts.length)));
+    } else {
+      setVisibleCount(prev => Math.min(Math.max(prev, batch), products.length || batch));
+    }
+  }, [products.length, filteredProducts.length, getColumnsForWidth, searchTerm, remoteResults]);
 
   // Handle window resize to update columns and ensure at least one batch visible
   useEffect(() => {
@@ -166,7 +192,11 @@ const App: React.FC = () => {
       columnsRef.current = newCols;
       if (prevCols !== newCols) {
         const minVisible = newCols * ROWS_PER_BATCH;
-        setVisibleCount(prev => Math.max(prev, Math.min(minVisible, products.length)));
+        if (searchTerm.trim()) {
+          setVisibleCount(filteredProducts.length);
+        } else {
+          setVisibleCount(prev => Math.max(prev, Math.min(minVisible, products.length)));
+        }
       }
     };
     window.addEventListener('resize', onResize);
@@ -182,7 +212,8 @@ const App: React.FC = () => {
           setVisibleCount(prev => {
             const cols = columnsRef.current || getColumnsForWidth(window.innerWidth);
             const batch = cols * ROWS_PER_BATCH;
-            return Math.min(prev + batch, products.length);
+            const total = remoteResults !== null ? remoteResults.length : (searchTerm.trim() ? filteredProducts.length : products.length);
+            return Math.min(prev + batch, total);
           });
         }
       });
@@ -190,7 +221,7 @@ const App: React.FC = () => {
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [products.length, getColumnsForWidth]);
+  }, [products.length, filteredProducts.length, getColumnsForWidth, searchTerm]);
 
   // Rendering
 
@@ -260,6 +291,54 @@ const App: React.FC = () => {
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 w-full">
         
         {/* Header Section */}
+        <div className="mb-4">
+          <div className="max-w-7xl mx-auto px-0 sm:px-0">
+            <div className="flex items-center gap-3">
+              <input
+                aria-label="Search products"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  // Clear any prior remote results when user edits the query
+                  if (remoteResults !== null) setRemoteResults(null);
+                }}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const q = searchTerm.trim();
+                    if (!q) {
+                      // If empty, clear remoteResults and do nothing
+                      setRemoteResults(null);
+                      setIsRemoteSearching(false);
+                      return;
+                    }
+                    setIsRemoteSearching(true);
+                    setRemoteResults(null);
+                    try {
+                      const results = await searchProducts(q);
+                      setRemoteResults(results);
+                      // Ensure visibleCount shows results (show all search results)
+                      setVisibleCount(results.length);
+                    } catch (err) {
+                      console.error('Search failed', err);
+                    } finally {
+                      setIsRemoteSearching(false);
+                    }
+                  }
+                }}
+                className="flex-grow px-4 py-2 rounded-lg border border-slate-200 bg-white shadow-sm focus:outline-none"
+                placeholder="Search products by name or description..."
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="px-3 py-2 bg-slate-100 rounded-lg text-sm text-slate-600 hover:bg-slate-200"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
 
           
@@ -289,7 +368,12 @@ const App: React.FC = () => {
 
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
-          {products.slice(0, visibleCount).map(product => (
+          {isRemoteSearching ? (
+            <div className="col-span-full text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+          ) : (
+            displayedProducts.slice(0, visibleCount).map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
@@ -299,8 +383,9 @@ const App: React.FC = () => {
               onEdit={(p) => { setEditingProduct(p); setIsProductFormOpen(true); }}
               thumbnails={product.thumbnails}
             />
-          ))}
-          {products.length === 0 && (
+            ))
+          )}
+          {displayedProducts.length === 0 && (
             <div className="col-span-full text-center py-20 text-slate-400">
               <i className="fas fa-box-open text-6xl mb-4"></i>
               <p>No products available yet.</p>
