@@ -21,8 +21,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalIndex, setModalIndex] = React.useState<number | null>(null);
   const [quantity, setQuantity] = React.useState<number>(0);
+  const thumbsRef = React.useRef<HTMLDivElement | null>(null);
+  const isDownRef = React.useRef(false);
+  const startXRef = React.useRef(0);
+  const startScrollRef = React.useRef(0);
+  const [isDragging, setIsDragging] = React.useState(false);
   const touchStartX = React.useRef<number | null>(null);
   const SWIPE_THRESHOLD = 50; // px
+
+  // Attach a non-passive wheel listener so we can call preventDefault()
+  React.useEffect(() => {
+    const el = thumbsRef.current;
+    if (!el) return;
+    const onWheel = (ev: WheelEvent) => {
+      // only intercept when there's horizontal overflow
+      if (el.scrollWidth > el.clientWidth) {
+        el.scrollLeft += ev.deltaY;
+        ev.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel as EventListener);
+  }, []);
 
   // Prevent background page scrolling when modal is open
   React.useEffect(() => {
@@ -119,9 +139,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </button>
         )}
       </div>
-      {/* Thumbnails Row (non-admin mode) */}
+      {/* Thumbnails Row (non-admin mode) - horizontally scrollable and draggable */}
       {product.images && (
-        <div className="flex gap-2 px-4 py-2 bg-transparent">
+        <div
+          ref={thumbsRef}
+          className={`flex gap-2 px-4 py-2 bg-transparent overflow-x-auto`} 
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', cursor: isDragging ? 'grabbing' : 'grab' }}
+          onPointerDown={(e) => {
+            const el = thumbsRef.current;
+            if (!el) return;
+            isDownRef.current = true;
+            setIsDragging(true);
+            startXRef.current = e.clientX;
+            startScrollRef.current = el.scrollLeft;
+            (e.target as Element).setPointerCapture?.(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            const el = thumbsRef.current;
+            if (!el || !isDownRef.current) return;
+            const dx = e.clientX - startXRef.current;
+            el.scrollLeft = startScrollRef.current - dx;
+          }}
+          onPointerUp={(e) => {
+            isDownRef.current = false;
+            setIsDragging(false);
+            try { (e.target as Element).releasePointerCapture?.(e.pointerId); } catch { }
+          }}
+          onPointerCancel={() => { isDownRef.current = false; setIsDragging(false); }}
+          onPointerLeave={() => { /* don't clear here - keep dragging if pointer is down */ }}
+        >
           {product.images.map((imgObj, idx) => (
             imgObj.urls.small ? (
               <img
