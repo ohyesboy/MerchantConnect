@@ -190,8 +190,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {modalOpen && modalIndex !== null && product.images && product.images[modalIndex] && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setModalOpen(false); setModalIndex(null); }}>
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: '100%', height: '100%' }}
+            className="relative flex items-center justify-center p-6"
             onClick={e => e.stopPropagation()}
             onTouchStart={(e) => {
               if (e.touches && e.touches.length > 0) {
