@@ -348,10 +348,11 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+        {viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (     
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
 
           
-{viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (     
+
          <button 
               onClick={async () => {
                 // Create product in Firestore and open form
@@ -372,9 +373,9 @@ const App: React.FC = () => {
             >
               <i className="fas fa-plus mr-2"></i> Add Product
             </button>
-          )}
+       
         </div>
-
+   )}
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
           {isRemoteSearching ? (
