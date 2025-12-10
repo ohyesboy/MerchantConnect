@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
@@ -32,6 +32,23 @@ const App: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [newProductId, setNewProductId] = useState<string | null>(null);
   const [newProductSaved, setNewProductSaved] = useState(false);
+
+  // Lazy-loading: show 2 rows per batch
+  const ROWS_PER_BATCH = 2;
+  const [visibleCount, setVisibleCount] = useState<number>(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const cols = w >= 1280 ? 4 : w >= 1024 ? 3 : w >= 640 ? 2 : 1;
+    return cols * ROWS_PER_BATCH;
+  });
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const columnsRef = useRef<number>(1);
+
+  const getColumnsForWidth = useCallback((w: number) => {
+    if (w >= 1280) return 4; // xl
+    if (w >= 1024) return 3; // lg
+    if (w >= 640) return 2;  // sm
+    return 1;
+  }, []);
 
   // Initialize Firebase from env on mount
   useEffect(() => {
@@ -133,6 +150,48 @@ const App: React.FC = () => {
     }
   };
 
+  // Ensure initial visibleCount and update when products change
+  useEffect(() => {
+    const cols = getColumnsForWidth(typeof window !== 'undefined' ? window.innerWidth : 1024);
+    columnsRef.current = cols;
+    const batch = cols * ROWS_PER_BATCH;
+    setVisibleCount(prev => Math.min(Math.max(prev, batch), products.length || batch));
+  }, [products.length, getColumnsForWidth]);
+
+  // Handle window resize to update columns and ensure at least one batch visible
+  useEffect(() => {
+    const onResize = () => {
+      const newCols = getColumnsForWidth(window.innerWidth);
+      const prevCols = columnsRef.current;
+      columnsRef.current = newCols;
+      if (prevCols !== newCols) {
+        const minVisible = newCols * ROWS_PER_BATCH;
+        setVisibleCount(prev => Math.max(prev, Math.min(minVisible, products.length)));
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [getColumnsForWidth, products.length]);
+
+  // IntersectionObserver to load next batches when sentinel intersects
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setVisibleCount(prev => {
+            const cols = columnsRef.current || getColumnsForWidth(window.innerWidth);
+            const batch = cols * ROWS_PER_BATCH;
+            return Math.min(prev + batch, products.length);
+          });
+        }
+      });
+    }, { root: null, rootMargin: '200px', threshold: 0.1 });
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [products.length, getColumnsForWidth]);
+
   // Rendering
 
   if (configError) {
@@ -230,7 +289,7 @@ const App: React.FC = () => {
 
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
-          {products.map(product => (
+          {products.slice(0, visibleCount).map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
@@ -248,6 +307,9 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Sentinel observed to load next batches when scrolled into view */}
+        <div ref={sentinelRef} aria-hidden="true" />
       </main>
 
       {/* Sticky Action Bar for Merchants */}
