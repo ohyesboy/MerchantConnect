@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Product, UserProfile } from '../types';
-import { generateInterestEmail } from '../services/geminiService';
 import { updateUserProfile, getUserProfile } from '../services/firebaseService';
 
 interface InterestedModalProps {
@@ -10,6 +9,77 @@ interface InterestedModalProps {
   currentUser: UserProfile;
   adminEmail: string;
 }
+
+/**
+ * Generates a professional email draft for the merchant to send to the admin.
+ * Uses a default template (no AI).
+ */
+const generateInterestEmail = async (
+  user: UserProfile | null | undefined,
+  products: Product[] | null | undefined
+): Promise<{ subject: string; body: string }> => {
+  try {
+    // Validate inputs
+    if (!user || !products || !Array.isArray(products) || products.length === 0) {
+      throw new Error('Invalid user or products data');
+    }
+
+    // Filter out any undefined products and use default template
+    const validProducts = products.filter(p => p && p.name);
+    if (validProducts.length === 0) {
+      throw new Error('No valid products selected');
+    }
+
+    // Safely get user name
+    const firstName = user.firstName || 'Valued Customer';
+    const lastName = user.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    const productList = validProducts.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
+    return {
+      subject: `Interest in ${validProducts.length} products`,
+      body: `Hi,\n\nI am ${fullName} and am interested in the following products:
+
+${productList}
+
+Please contact me at ${user.phone || user.uid}.
+My business name: ${(user as any).businessName || 'N/A'}.
+UID: ${user.uid || 'N/A'}.
+Phone: ${user.phone || 'N/A'}.
+Address: ${(user as any).businessAddress ? `${(user as any).businessAddress.street || ''}, ${(user as any).businessAddress.city || ''}, ${(user as any).businessAddress.state || ''} ${(user as any).businessAddress.zipcode || ''}` : 'N/A'}.
+Thank you!`,
+    };
+  } catch (error) {
+    console.error("Error generating email:", error);
+    // Return fallback on error with safe defaults
+    if (!user || !products || !Array.isArray(products)) {
+      return {
+        subject: 'Interest in Products',
+        body: 'Unable to generate email. Please try again.',
+      };
+    }
+
+    const validProducts = products.filter(p => p && p.name);
+    const firstName = user.firstName || 'Valued Customer';
+    const lastName = user.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    const productListFallback = validProducts.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
+
+    return {
+      subject: `Interest in ${validProducts.length} products`,
+      body: `Hi,\n\nI am ${fullName} and am interested in the following products:
+
+${productListFallback}
+
+Please contact me at ${user.phone || user.uid}.
+My business name: ${(user as any).businessName || 'N/A'}.
+UID: ${user.uid || 'N/A'}.
+Phone: ${user.phone || 'N/A'}.
+Address: ${(user as any).businessAddress ? `${(user as any).businessAddress.street || ''}, ${(user as any).businessAddress.city || ''}, ${(user as any).businessAddress.state || ''} ${(user as any).businessAddress.zipcode || ''}` : 'N/A'}.
+Thank you!`,
+    };
+  }
+};
 
 export const InterestedModal: React.FC<InterestedModalProps> = ({
   isOpen,
@@ -30,6 +100,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
     zipcode: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [draftEmailForMe, setDraftEmailForMe] = useState<boolean>(() => {
     try {
@@ -62,6 +133,8 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
         zipcode: (currentUser as any).businessAddress?.zipcode || ''
       });
       setStep('form');
+      setError(null);
+      setLoading(false);
     }
   }, [isOpen, currentUser]);
 
@@ -80,8 +153,14 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
+      // Debug: log selectedProducts
+      console.log('selectedProducts:', selectedProducts);
+      console.log('selectedProducts type:', typeof selectedProducts);
+      console.log('selectedProducts is array:', Array.isArray(selectedProducts));
+
       // 1. Update User Profile in Firestore
       const profileUpdate: any = {
         firstName: formData.firstName,
@@ -111,9 +190,20 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
       const updatedUser = { ...currentUser, ...profileUpdate, uid: userKey };
 
       // 2. Generate Email Content using Gemini
-      const emailContent = await generateInterestEmail(updatedUser, selectedProducts);
+      // Filter out any undefined products
+      const validSelectedProducts = Array.isArray(selectedProducts)
+        ? selectedProducts.filter((p: any) => p && p.id && p.name)
+        : [];
+      console.log('validSelectedProducts:', validSelectedProducts);
+      if (validSelectedProducts.length === 0) {
+        throw new Error('No valid products selected');
+      }
+      const emailContent = await generateInterestEmail(updatedUser, validSelectedProducts);
 
       // 3. Open Mail Client (simulating "Send")
+      if (!emailContent || !emailContent.subject || !emailContent.body) {
+        throw new Error('Failed to generate email content');
+      }
       const mailtoLink = `mailto:${adminEmail}?subject=${encodeURIComponent(emailContent.subject)}&body=${encodeURIComponent(emailContent.body)}`;
 
       // Open mail client only if the user has asked to draft the email for them
@@ -123,10 +213,14 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
       }
 
       setStep('success');
+      // Close modal after 1.5 seconds
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (error) {
       console.error("Process failed", error);
-      alert("Something went wrong generating the inquiry.");
-    } finally {
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong generating the inquiry.";
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -150,7 +244,12 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
             </div>
 
             <div className="p-6">
-
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  <i className="fas fa-exclamation-circle mr-2"></i>
+                  {error}
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
 

@@ -491,7 +491,7 @@ const App: React.FC = () => {
 
       {/* Modals */}
       {user && (
-        <InterestedModal 
+        <InterestedModal
           isOpen={isInterestModalOpen}
           onClose={() => setIsInterestModalOpen(false)}
           selectedProducts={Object.keys(selectionMap).map(id => products.find(p => p.id === id)).filter(Boolean) as Product[]}
