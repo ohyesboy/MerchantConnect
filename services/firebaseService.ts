@@ -65,17 +65,13 @@ export const getAdminEmails = async (): Promise<string[]> => {
     // Fetch from configs/adminEmails
     const docRef = doc(db, "configs", "adminEmails");
     const docSnap = await getDoc(docRef);
-    console.log("Admin emails doc exists:", docSnap.exists());
 
     if (docSnap.exists()) {
       const data = docSnap.data();
-      console.log("Admin emails data:", data);
       const emails = data.emails || [];
-      console.log("Extracted emails:", emails);
       return emails;
     }
 
-    console.log("Admin emails document does not exist");
     return [];
   } catch (error) {
     console.error("Error fetching admin emails:", error);
@@ -267,14 +263,8 @@ export const getConfig = async (docId: string): Promise<any> => {
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    const data = docSnap.data();
-
-    // If the document has a nested structure with docId as key, return that
-    if (data[docId]) {
-      return data[docId];
-    }
-    // Otherwise return the entire document
-    return data;
+    // Return the entire document directly
+    return docSnap.data();
   }
   throw new Error("Config document not found");
 };
@@ -282,9 +272,6 @@ export const getConfig = async (docId: string): Promise<any> => {
 export const updateConfig = async (docId: string, data: any): Promise<void> => {
   if (!db) throw new Error("Database not initialized");
   const docRef = doc(db, "configs", docId);
-  // Save the data directly under the docId key
-  const updateData = { [docId]: data };
-
-  await setDoc(docRef, updateData, { merge: false });
-
+  // Save the data directly without wrapping
+  await setDoc(docRef, data, { merge: false });
 };

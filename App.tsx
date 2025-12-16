@@ -85,6 +85,37 @@ const App: React.FC = () => {
     ? (isAdmin ? remoteResults : remoteResults.filter(p => !(p as any).hidden))
     : (searchTerm.trim() ? filteredProducts : visibleSourceProducts);
 
+  // Track if we've already restored the viewState to avoid re-restoring
+  const hasRestoredRef = useRef(false);
+
+  // Save viewState to localStorage whenever it changes (but not LOADING state)
+  useEffect(() => {
+    if (viewState !== ViewState.LOADING) {
+      localStorage.setItem('viewState', String(viewState));
+    }
+  }, [viewState]);
+
+  // Restore viewState from localStorage after user and adminEmails are loaded
+  useEffect(() => {
+    if (user && adminEmails.length > 0 && !hasRestoredRef.current) {
+      hasRestoredRef.current = true;
+      const savedViewStateStr = localStorage.getItem('viewState');
+      const savedViewState = savedViewStateStr !== null ? parseInt(savedViewStateStr, 10) : null;
+      console.log("Restoration effect - user:", user.uid, "adminEmails:", adminEmails, "savedViewState:", savedViewState, "ADMIN_DASHBOARD value:", ViewState.ADMIN_DASHBOARD);
+      if (savedViewState !== null && savedViewState !== ViewState.LOADING) {
+        // Only restore ADMIN_DASHBOARD if user is actually an admin
+        if (savedViewState === ViewState.ADMIN_DASHBOARD && user.uid && adminEmails.includes(user.uid)) {
+          console.log("Restoring ADMIN_DASHBOARD");
+          setViewState(ViewState.ADMIN_DASHBOARD);
+        } else if (savedViewState !== ViewState.ADMIN_DASHBOARD) {
+          // Restore non-admin states
+          console.log("Restoring non-admin state:", savedViewState);
+          setViewState(savedViewState);
+        }
+      }
+    }
+  }, [user, adminEmails]);
+
   // Initialize Firebase from env on mount
   useEffect(() => {
     const configStr = import.meta.env.VITE_FIREBASE_CONFIG;
@@ -104,7 +135,6 @@ const App: React.FC = () => {
     const fetchAdminEmails = async () => {
       try {
         const emails = await getAdminEmails();
-        console.log("Fetched admin emails:", emails);
         setAdminEmails(emails);
       } catch (error) {
         console.error("Failed to fetch admin emails:", error);
@@ -136,6 +166,7 @@ const App: React.FC = () => {
         profile.uid = userKey; // Ensure uid is set to email
 
         setUser(profile);
+        // Set to FEED initially, will be restored by separate effect if needed
         setViewState(ViewState.FEED);
       } else {
         setUser(null);
@@ -188,6 +219,9 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await logoutUser();
     setUser(null);
+    // Clear saved viewState when logging out
+    localStorage.removeItem('viewState');
+    setViewState(ViewState.FEED);
   };
 
   const toggleProductSelection = (product: Product, qty?: number) => {
@@ -322,18 +356,14 @@ const App: React.FC = () => {
                     <span className="text-xs text-slate-500">{user.uid}</span>
                   </div>
 
-                  {(() => {
-                    const isUserAdmin = user.uid && adminEmails.includes(user.uid);
-                    console.log("Admin check - user.uid:", user.uid, "adminEmails:", adminEmails, "isAdmin:", isUserAdmin);
-                    return isUserAdmin && (
-                      <button
-                        onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
-                        className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
-                      >
-                        {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
-                      </button>
-                    );
-                  })()}
+                  {(user.uid && adminEmails.includes(user.uid)) && (
+                    <button
+                      onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
+                      className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
+                    >
+                      {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
+                    </button>
+                  )}
                   <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
                     <i className="fas fa-sign-out-alt text-lg"></i>
                   </button>
