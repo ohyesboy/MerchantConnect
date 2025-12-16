@@ -225,3 +225,31 @@ export const uploadFilesToStorage = async (
 
   return uploadedUrls;
 };
+
+export const getConfig = async (docId: string): Promise<any> => {
+  if (!db) throw new Error("Database not initialized");
+  const docRef = doc(db, "configs", docId);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+
+    // If the document has a nested structure with docId as key, return that
+    if (data[docId]) {
+      return data[docId];
+    }
+    // Otherwise return the entire document
+    return data;
+  }
+  throw new Error("Config document not found");
+};
+
+export const updateConfig = async (docId: string, data: any): Promise<void> => {
+  if (!db) throw new Error("Database not initialized");
+  const docRef = doc(db, "configs", docId);
+  // Save the data directly under the docId key
+  const updateData = { [docId]: data };
+
+  await setDoc(docRef, updateData, { merge: false });
+
+};

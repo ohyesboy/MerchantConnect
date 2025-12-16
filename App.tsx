@@ -3,6 +3,7 @@ import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
 import { BatchUploadDialog } from './components/BatchUploadDialog';
+import { EditConfigDialog } from './components/EditConfigDialog';
 import { 
   initFirebase, 
   getFirebaseAuth, 
@@ -36,6 +37,7 @@ const App: React.FC = () => {
   const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);
+  const [isEditConfigOpen, setIsEditConfigOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [newProductId, setNewProductId] = useState<string | null>(null);
   const [newProductSaved, setNewProductSaved] = useState(false);
@@ -412,6 +414,12 @@ const App: React.FC = () => {
             >
               <i className="fas fa-cloud-upload-alt mr-2"></i> Batch Upload
             </button>
+            <button
+              onClick={() => setIsEditConfigOpen(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
+            >
+              <i className="fas fa-cog mr-2"></i> Edit Config
+            </button>
           </div>
        
         </div>
@@ -505,6 +513,11 @@ const App: React.FC = () => {
       <BatchUploadDialog
         isOpen={isBatchUploadOpen}
         onClose={() => setIsBatchUploadOpen(false)}
+      />
+
+      <EditConfigDialog
+        isOpen={isEditConfigOpen}
+        onClose={() => setIsEditConfigOpen(false)}
       />
     </div>
   );
