@@ -1,9 +1,10 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut, 
+import {
+  getAuth,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  signOut,
   User as FirebaseUser,
   onAuthStateChanged
 } from 'firebase/auth';
@@ -61,6 +62,14 @@ export const getFirebaseAuth = () => {
 export const loginWithGoogle = async () => {
   if (!auth) throw new Error("Firebase not initialized");
   const provider = new GoogleAuthProvider();
+  // Force account selection popup to appear every time
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return signInWithPopup(auth, provider);
+};
+
+export const loginWithMicrosoft = async () => {
+  if (!auth) throw new Error("Firebase not initialized");
+  const provider = new OAuthProvider('microsoft.com');
   // Force account selection popup to appear every time
   provider.setCustomParameters({ prompt: 'select_account' });
   return signInWithPopup(auth, provider);

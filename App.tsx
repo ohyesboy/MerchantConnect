@@ -4,11 +4,13 @@ import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
 import { BatchUploadDialog } from './components/BatchUploadDialog';
 import { EditConfigDialog } from './components/EditConfigDialog';
-import { 
-  initFirebase, 
-  getFirebaseAuth, 
-  loginWithGoogle, 
-  logoutUser, 
+import { LoginPage } from './components/LoginPage';
+import {
+  initFirebase,
+  getFirebaseAuth,
+  loginWithGoogle,
+  loginWithMicrosoft,
+  logoutUser,
   getUserProfile,
   subscribeToProducts,
   updateUserProfile,
@@ -136,18 +138,6 @@ const App: React.FC = () => {
       }
     });
 
-    // Subscribe to Products
-    let unsubscribeProducts: (() => void) | undefined;
-    try {
-      unsubscribeProducts = subscribeToProducts((data) => {
-        // Normalize product objects: ensure `stock` is defined (default 0)
-        const normalized = data.map(p => ({ ...p, stock: (p as any).stock ?? 0 }));
-        setProducts(normalized);
-      });
-    } catch (err) {
-      console.error("Failed to subscribe to products:", err);
-    }
-
     // Listen for profile updates dispatched from modals/components
     const onProfileUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail as any;
@@ -159,8 +149,25 @@ const App: React.FC = () => {
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeProducts) unsubscribeProducts();
       window.removeEventListener('userProfileUpdated', onProfileUpdated as EventListener);
+    };
+  }, []);
+
+  // Subscribe to products after Firebase is initialized
+  useEffect(() => {
+    let unsubscribeProducts: (() => void) | undefined;
+    try {
+      unsubscribeProducts = subscribeToProducts((data) => {
+        // Normalize product objects: ensure `stock` is defined (default 0)
+        const normalized = data.map(p => ({ ...p, stock: (p as any).stock ?? 0 }));
+        setProducts(normalized);
+      });
+    } catch (err) {
+      console.error("Failed to subscribe to products:", err);
+    }
+
+    return () => {
+      if (unsubscribeProducts) unsubscribeProducts();
     };
   }, []);
 
@@ -279,6 +286,11 @@ const App: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  // Show login page if user is not logged in
+  if (!user) {
+    return <LoginPage logoHtml={logoHtml} />;
   }
 
   return (
