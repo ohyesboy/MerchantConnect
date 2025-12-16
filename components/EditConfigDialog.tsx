@@ -6,6 +6,7 @@ interface Prompt {
   imageSize: string;
   name: string;
   prompt: string;
+  weight?: number; // 0-10
   isdefault?: boolean;
   modelName?: string;
 }
@@ -90,10 +91,12 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
   };
 
   const updatePrompt = (index: number, field: keyof Prompt, value: any) => {
+    console.log("updatePrompt",index,field,value==='');
     if (!config) return;
     const newPrompts = [...config.prompts];
     newPrompts[index] = { ...newPrompts[index], [field]: value };
     setConfig({ ...config, prompts: newPrompts });
+    console.log("Updated prompts:", newPrompts);
   };
 
   const removePrompt = (index: number) => {
@@ -105,10 +108,11 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
     if (!config) return;
     const newPrompt: Prompt = {
       enabled: true,
-      imageSize: '2:3',
+      imageSize: '',
       name: 'New Prompt',
       prompt: '',
-      modelName: 'gemini-2.5-flash-image'
+      weight: 5,
+      modelName: ''
     };
     setConfig({ ...config, prompts: [...config.prompts, newPrompt] });
   };
@@ -286,10 +290,22 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                               onChange={(e) => updatePrompt(index, 'modelName', e.target.value)}
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             >
+                                 <option key='' value=''>Inherit</option>
                               {MODEL_OPTIONS.map(model => (
                                 <option key={model} value={model}>{model}</option>
                               ))}
                             </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (0-10)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="10"
+                              value={prompt.weight ?? 1}
+                              onChange={(e) => updatePrompt(index, 'weight', Math.min(Math.max(parseInt(e.target.value) || 0, 0), 10))}
+                              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            />
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Prompt</label>
@@ -313,9 +329,9 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                           </div>
                           <button
                             onClick={() => removePrompt(index)}
-                            className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 rounded-lg transition text-sm"
+                            className="w-20 bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 rounded-lg transition text-sm"
                           >
-                            <i className="fas fa-trash-alt mr-2"></i> Remove Prompt
+                            <i className="fas fa-trash-alt mr-2"></i>
                           </button>
                         </div>
                       )}
