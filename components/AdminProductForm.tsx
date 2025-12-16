@@ -160,14 +160,12 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         hidden: !!hidden,
       };
 
-      console.log("Saving product data:", productData);
 
       if (initialProduct) {
         console.log("Updating product:", initialProduct.id);
         await updateProduct(initialProduct.id, productData);
       }
-      if (typeof onSave === 'function') onSave();
-      console.log("Product saved successfully");
+  
       onClose(true);
     } catch (err) {
       console.error("Failed to save product:", err);
