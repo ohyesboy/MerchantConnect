@@ -3,7 +3,7 @@ import { getConfig, updateConfig } from '../services/firebaseService';
 
 interface Prompt {
   enabled: boolean;
-  ratio: string;
+  imageSize: string;
   name: string;
   prompt: string;
   isdefault?: boolean;
@@ -105,7 +105,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
     if (!config) return;
     const newPrompt: Prompt = {
       enabled: true,
-      ratio: '2:3',
+      imageSize: '2:3',
       name: 'New Prompt',
       prompt: '',
       modelName: 'gemini-2.5-flash-image'
@@ -267,12 +267,13 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Ratio</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Image Size</label>
                             <select
-                              value={prompt.ratio}
-                              onChange={(e) => updatePrompt(index, 'ratio', e.target.value)}
+                              value={prompt.imageSize || ''}
+                              onChange={(e) => updatePrompt(index, 'imageSize', e.target.value)}
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             >
+                              <option key='' value=''>Inherit</option>
                               {IMAGE_SIZE_OPTIONS.map(size => (
                                 <option key={size} value={size}>{size}</option>
                               ))}
