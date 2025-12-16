@@ -87,34 +87,47 @@ const App: React.FC = () => {
 
   // Track if we've already restored the viewState to avoid re-restoring
   const hasRestoredRef = useRef(false);
+  // Track if we should save viewState to localStorage (not during initial restoration)
+  const shouldSaveRef = useRef(false);
 
   // Save viewState to localStorage whenever it changes (but not LOADING state)
   useEffect(() => {
-    if (viewState !== ViewState.LOADING) {
+    if (viewState !== ViewState.LOADING && shouldSaveRef.current) {
       localStorage.setItem('viewState', String(viewState));
     }
   }, [viewState]);
 
-  // Restore viewState from localStorage after user and adminEmails are loaded
+  // Restore viewState from localStorage after user is loaded
   useEffect(() => {
-    if (user && adminEmails.length > 0 && !hasRestoredRef.current) {
+    if (user && !hasRestoredRef.current) {
       hasRestoredRef.current = true;
       const savedViewStateStr = localStorage.getItem('viewState');
       const savedViewState = savedViewStateStr !== null ? parseInt(savedViewStateStr, 10) : null;
-      console.log("Restoration effect - user:", user.uid, "adminEmails:", adminEmails, "savedViewState:", savedViewState, "ADMIN_DASHBOARD value:", ViewState.ADMIN_DASHBOARD);
       if (savedViewState !== null && savedViewState !== ViewState.LOADING) {
         // Only restore ADMIN_DASHBOARD if user is actually an admin
         if (savedViewState === ViewState.ADMIN_DASHBOARD && user.uid && adminEmails.includes(user.uid)) {
-          console.log("Restoring ADMIN_DASHBOARD");
           setViewState(ViewState.ADMIN_DASHBOARD);
         } else if (savedViewState !== ViewState.ADMIN_DASHBOARD) {
           // Restore non-admin states
-          console.log("Restoring non-admin state:", savedViewState);
           setViewState(savedViewState);
         }
       }
+      // Enable saving after restoration is complete
+      shouldSaveRef.current = true;
     }
   }, [user, adminEmails]);
+
+  // If adminEmails load after user, check if we need to upgrade to ADMIN_DASHBOARD
+  useEffect(() => {
+    if (user && adminEmails.length > 0 && hasRestoredRef.current) {
+      const savedViewStateStr = localStorage.getItem('viewState');
+      const savedViewState = savedViewStateStr !== null ? parseInt(savedViewStateStr, 10) : null;
+      // If we previously restored FEED but user is now an admin, upgrade to ADMIN_DASHBOARD
+      if (savedViewState === ViewState.ADMIN_DASHBOARD && viewState === ViewState.FEED && user.uid && adminEmails.includes(user.uid)) {
+        setViewState(ViewState.ADMIN_DASHBOARD);
+      }
+    }
+  }, [adminEmails, user, viewState]);
 
   // Initialize Firebase from env on mount
   useEffect(() => {
@@ -222,6 +235,9 @@ const App: React.FC = () => {
     // Clear saved viewState when logging out
     localStorage.removeItem('viewState');
     setViewState(ViewState.FEED);
+    // Reset the restoration flags so they can restore again on next login
+    hasRestoredRef.current = false;
+    shouldSaveRef.current = false;
   };
 
   const toggleProductSelection = (product: Product, qty?: number) => {
