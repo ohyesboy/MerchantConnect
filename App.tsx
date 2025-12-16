@@ -494,7 +494,10 @@ const App: React.FC = () => {
         <InterestedModal
           isOpen={isInterestModalOpen}
           onClose={() => setIsInterestModalOpen(false)}
-          selectedProducts={Object.keys(selectionMap).map(id => products.find(p => p.id === id)).filter(Boolean) as Product[]}
+          selectedProducts={Object.keys(selectionMap).map(id => {
+            const product = products.find(p => p && p.id === id);
+            return product || null;
+          }).filter((p): p is Product => p !== null && p !== undefined)}
           currentUser={user}
           adminEmail={adminEmail}
         />

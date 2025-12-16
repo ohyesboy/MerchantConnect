@@ -88,8 +88,9 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   currentUser,
   adminEmail
 }) => {
+
   const [formData, setFormData] = useState({
-    email: currentUser.uid || '',
+    uid: currentUser.uid || '',
     firstName: '',
     lastName: '',
     phone: '',
@@ -120,9 +121,9 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   }, [draftEmailForMe]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentUser && currentUser.uid) {
       setFormData({
-        email: currentUser.uid || '',
+        uid: currentUser.uid || '',
         firstName: currentUser.firstName || '',
         lastName: currentUser.lastName || '',
         phone: currentUser.phone || '',
@@ -132,7 +133,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
         state: (currentUser as any).businessAddress?.state || '',
         zipcode: (currentUser as any).businessAddress?.zipcode || ''
       });
-      setStep('form');
+ 
       setError(null);
       setLoading(false);
     }
@@ -143,7 +144,9 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose(); 
+        setStep('form');
+        setLoading(false);
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -156,14 +159,15 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
     setError(null);
 
     try {
-      // Debug: log selectedProducts
-      console.log('selectedProducts:', selectedProducts);
-      console.log('selectedProducts type:', typeof selectedProducts);
-      console.log('selectedProducts is array:', Array.isArray(selectedProducts));
+      // Validate currentUser has uid
+      if (!currentUser || !currentUser.uid) {
+        throw new Error('User not properly initialized');
+      }
 
       // 1. Update User Profile in Firestore
       const profileUpdate: any = {
         firstName: formData.firstName,
+        uid: currentUser.uid,
         lastName: formData.lastName,
         phone: formData.phone,
         businessName: (formData as any).businessName,
@@ -194,7 +198,6 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
       const validSelectedProducts = Array.isArray(selectedProducts)
         ? selectedProducts.filter((p: any) => p && p.id && p.name)
         : [];
-      console.log('validSelectedProducts:', validSelectedProducts);
       if (validSelectedProducts.length === 0) {
         throw new Error('No valid products selected');
       }
@@ -211,12 +214,11 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
         // We open this in a new tab/window to not disrupt the app state too much
         window.open(mailtoLink, '_blank');
       }
-
+;
       setStep('success');
+            console.log("step", step)
       // Close modal after 1.5 seconds
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+
     } catch (error) {
       console.error("Process failed", error);
       const errorMessage = error instanceof Error ? error.message : "Something went wrong generating the inquiry.";
@@ -295,7 +297,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
                     disabled
                     aria-disabled="true"
                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 outline-none transition opacity-70 cursor-not-allowed"
-                    value={(formData as any).email}
+                    value={(formData as any).uid}
                     
                   />
                 </div>
@@ -438,7 +440,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={() => { onClose(); setStep('form'); setLoading(false); }}
                     className="w-full mt-3 text-slate-500 text-sm font-medium hover:text-slate-700"
                   >
                     Cancel
@@ -459,7 +461,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
               </p>
             )}
             <button
-              onClick={onClose}
+              onClick={() => { onClose(); setStep('form'); setLoading(false); }}
               className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition"
             >
               Back to Products
