@@ -15,15 +15,12 @@ import {
   subscribeToProducts,
   updateUserProfile,
   addProductWithRef,
-  deleteProduct
+  deleteProduct,
+  getAdminEmails
 } from './services/firebaseService';
 import { Product, UserProfile, ViewState } from './types';
 import { searchProducts } from './services/firebaseService';
 import { onAuthStateChanged } from 'firebase/auth';
-
-const adminEmail = import.meta.env.VITE_AdminEmail || '';
-const normalizedAdminEmail = adminEmail.trim().toLowerCase();
-const adminUid = normalizedAdminEmail; // Admin UID is the normalized admin email
 
 const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
@@ -32,6 +29,7 @@ const App: React.FC = () => {
   // selectionMap: productId -> quantity
   const [selectionMap, setSelectionMap] = useState<Record<string, number>>({});
   const [configError, setConfigError] = useState<string | null>(null);
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
   // Optional HTML logo from environment. If provided, it will replace the text logo.
   const logoHtml = (import.meta.env.VITE_LOGOHTML as string) || '';
   
@@ -64,7 +62,7 @@ const App: React.FC = () => {
     return 1;
   }, []);
 
-  const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail;
+  const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid);
   const visibleSourceProducts = isAdmin ? products : products.filter(p => !(p as any).hidden);
 
   // Filtered products based on search. If search is empty, returns full products list.
@@ -90,14 +88,9 @@ const App: React.FC = () => {
   // Initialize Firebase from env on mount
   useEffect(() => {
     const configStr = import.meta.env.VITE_FIREBASE_CONFIG;
-    
+
     if (!configStr) {
       setConfigError('Missing VITE_FIREBASE_CONFIG environment variable');
-      return;
-    }
-    
-    if (!adminEmail) {
-      setConfigError('Missing VITE_AdminEmail environment variable');
       return;
     }
 
@@ -106,6 +99,18 @@ const App: React.FC = () => {
       setConfigError('Failed to initialize Firebase with provided config');
       return;
     }
+
+    // Fetch admin emails from Firebase
+    const fetchAdminEmails = async () => {
+      try {
+        const emails = await getAdminEmails();
+        console.log("Fetched admin emails:", emails);
+        setAdminEmails(emails);
+      } catch (error) {
+        console.error("Failed to fetch admin emails:", error);
+      }
+    };
+    fetchAdminEmails();
 
     // Initialize Auth Listener
     const auth = getFirebaseAuth();
@@ -317,14 +322,18 @@ const App: React.FC = () => {
                     <span className="text-xs text-slate-500">{user.uid}</span>
                   </div>
 
-                  {(user.uid === normalizedAdminEmail) && (
-                    <button 
-                      onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
-                      className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
-                    >
-                      {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
-                    </button>
-                  )}
+                  {(() => {
+                    const isUserAdmin = user.uid && adminEmails.includes(user.uid);
+                    console.log("Admin check - user.uid:", user.uid, "adminEmails:", adminEmails, "isAdmin:", isUserAdmin);
+                    return isUserAdmin && (
+                      <button
+                        onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
+                        className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
+                      >
+                        {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
+                      </button>
+                    );
+                  })()}
                   <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
                     <i className="fas fa-sign-out-alt text-lg"></i>
                   </button>
@@ -394,7 +403,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        {viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail && (
+        {viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid) && (
         <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between mb-8">
 
 
@@ -444,12 +453,12 @@ const App: React.FC = () => {
             </div>
           ) : (
             displayedProducts.slice(0, visibleCount).map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
+            <ProductCard
+              key={product.id}
+              product={product}
               isSelected={!!selectionMap[product.id]}
               onToggleSelect={toggleProductSelection}
-              isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail}
+              isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid)}
               onEdit={(p) => { setEditingProduct(p); setIsProductFormOpen(true); }}
             />
             ))
@@ -499,7 +508,7 @@ const App: React.FC = () => {
             return product || null;
           }).filter((p): p is Product => p !== null && p !== undefined)}
           currentUser={user}
-          adminEmail={adminEmail}
+          adminEmails={adminEmails}
         />
       )}
 

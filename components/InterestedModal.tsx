@@ -7,7 +7,7 @@ interface InterestedModalProps {
   onClose: () => void;
   selectedProducts: Product[];
   currentUser: UserProfile;
-  adminEmail: string;
+  adminEmails: string[];
 }
 
 /**
@@ -86,7 +86,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   onClose,
   selectedProducts,
   currentUser,
-  adminEmail
+  adminEmails
 }) => {
 
   const [formData, setFormData] = useState({
@@ -207,7 +207,10 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
       if (!emailContent || !emailContent.subject || !emailContent.body) {
         throw new Error('Failed to generate email content');
       }
-      const mailtoLink = `mailto:${adminEmail}?subject=${encodeURIComponent(emailContent.subject)}&body=${encodeURIComponent(emailContent.body)}`;
+      if (!adminEmails || adminEmails.length === 0) {
+        throw new Error('No admin email configured');
+      }
+      const mailtoLink = `mailto:${adminEmails[0]}?subject=${encodeURIComponent(emailContent.subject)}&body=${encodeURIComponent(emailContent.body)}`;
 
       // Open mail client only if the user has asked to draft the email for them
       if (draftEmailForMe) {

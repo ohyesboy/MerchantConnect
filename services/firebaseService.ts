@@ -59,6 +59,30 @@ export const getFirebaseAuth = () => {
   return auth;
 };
 
+export const getAdminEmails = async (): Promise<string[]> => {
+  if (!db) throw new Error("Database not initialized");
+  try {
+    // Fetch from configs/adminEmails
+    const docRef = doc(db, "configs", "adminEmails");
+    const docSnap = await getDoc(docRef);
+    console.log("Admin emails doc exists:", docSnap.exists());
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log("Admin emails data:", data);
+      const emails = data.emails || [];
+      console.log("Extracted emails:", emails);
+      return emails;
+    }
+
+    console.log("Admin emails document does not exist");
+    return [];
+  } catch (error) {
+    console.error("Error fetching admin emails:", error);
+    return [];
+  }
+};
+
 export const loginWithGoogle = async () => {
   if (!auth) throw new Error("Firebase not initialized");
   const provider = new GoogleAuthProvider();
