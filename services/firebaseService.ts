@@ -93,13 +93,12 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
     console.error("Database not initialized");
     return () => {};
   }
-  console.log("Subscribing to products collection...");
+
   // Try without orderBy first to see if products exist
   const productsRef = collection(db, "products");
   return onSnapshot(productsRef, (snapshot) => {
     console.log("Products snapshot received:", snapshot.docs.length, "documents");
     const products = snapshot.docs.map(doc => {
-      console.log("Product doc:", doc.id, doc.data());
       return { id: doc.id, ...doc.data() } as Product;
     });
     // Sort client-side instead
@@ -178,7 +177,7 @@ export const uploadProductImage = async (file: File, productId?: string): Promis
 
 export const deleteProductImage = async (imageUrl: string): Promise<void> => {
   if (!storage) throw new Error("Storage not initialized");
-  
+
   try {
     // Create a reference from the URL
     const storageRef = ref(storage, imageUrl);
@@ -188,4 +187,41 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
     console.error("Failed to delete image from storage:", err);
     // Don't throw - image might already be deleted or URL might be invalid
   }
+};
+
+export const uploadFilesToStorage = async (
+  files: File[],
+  onProgress?: (fileName: string, progress: number) => void
+): Promise<string[]> => {
+  if (!storage) throw new Error("Storage not initialized");
+
+  const uploadedUrls: string[] = [];
+
+  for (const file of files) {
+    try {
+      // Create a unique filename with timestamp
+      const timestamp = Date.now();
+      const fileName = `${timestamp}_${file.name}`;
+      const storageRef = ref(storage, `newupload/${fileName}`);
+
+      // Upload the file
+      const snapshot = await uploadBytes(storageRef, file);
+
+      // Get the download URL
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      uploadedUrls.push(downloadUrl);
+
+      // Report progress
+      if (onProgress) {
+        onProgress(file.name, 100);
+      }
+
+      console.log(`File uploaded: ${file.name}`);
+    } catch (error) {
+      console.error(`Failed to upload ${file.name}:`, error);
+      throw error;
+    }
+  }
+
+  return uploadedUrls;
 };

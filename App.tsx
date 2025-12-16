@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
+import { BatchUploadDialog } from './components/BatchUploadDialog';
 import { 
   initFirebase, 
   getFirebaseAuth, 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   // Modals
   const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
+  const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [newProductId, setNewProductId] = useState<string | null>(null);
   const [newProductSaved, setNewProductSaved] = useState(false);
@@ -379,11 +381,12 @@ const App: React.FC = () => {
           </div>
         </div>
         {viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between mb-8">
 
-          
 
-         <button 
+
+         <div className="flex flex-col md:flex-row gap-3">
+            <button
               onClick={async () => {
                 // Create product in Firestore and open form
                 const defaultProduct = {
@@ -399,10 +402,17 @@ const App: React.FC = () => {
                 setNewProductId(docRef.id);
                 setIsProductFormOpen(true);
               }}
-              className="mt-4 md:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
             >
               <i className="fas fa-plus mr-2"></i> Add Product
             </button>
+            <button
+              onClick={() => setIsBatchUploadOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
+            >
+              <i className="fas fa-cloud-upload-alt mr-2"></i> Batch Upload
+            </button>
+          </div>
        
         </div>
    )}
@@ -471,7 +481,7 @@ const App: React.FC = () => {
       )}
 
       {isProductFormOpen && (
-        <AdminProductForm 
+        <AdminProductForm
           onClose={async (saved?: boolean) => {
             // If new product and not saved, delete from Firestore
             const wasSaved = saved || newProductSaved;
@@ -491,6 +501,11 @@ const App: React.FC = () => {
           onSave={() => setNewProductSaved(true)}
         />
       )}
+
+      <BatchUploadDialog
+        isOpen={isBatchUploadOpen}
+        onClose={() => setIsBatchUploadOpen(false)}
+      />
     </div>
   );
 };
