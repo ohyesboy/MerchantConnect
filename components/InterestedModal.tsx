@@ -194,10 +194,11 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
                   <input
                     type="email"
-                    required
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    disabled
+                    aria-disabled="true"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 outline-none transition opacity-70 cursor-not-allowed"
                     value={(formData as any).email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    
                   />
                 </div>
                 <div>
