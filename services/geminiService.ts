@@ -13,65 +13,27 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
  */
 export const generateInterestEmail = async (
   user: UserProfile,
-  products: Product[],
-  adminEmail: string
+  products: Product[]
 ): Promise<{ subject: string; body: string }> => {
 
-  // If AI client is not available, return a safe fallback instead of throwing so the UI can continue.
-  if (!ai) {
+
     console.warn('generateInterestEmail: AI client not available, using fallback content');
     const productListFallback = products.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
     return {
       subject: `Interest in ${products.length} products`,
-      body: `Hi,\n\nI am ${user.firstName} ${user.lastName} and am interested in the following products:\n${productListFallback}\n\nPlease contact me at ${user.phone || user.email}.`,
+      body: `Hi,\n\nI am ${user.firstName} ${user.lastName} and am interested in the following products:
+      
+      ${productListFallback}
+
+Please contact me at ${user.phone || user.email}.
+My business name: ${user.businessName || 'N/A'}.
+Email: ${user.email || 'N/A'}.
+Phone: ${user.phone || 'N/A'}.
+Address: ${user.businessAddress ? `${user.businessAddress.street || ''}, ${user.businessAddress.city || ''}, ${user.businessAddress.state || ''} ${user.businessAddress.zipcode || ''}` : 'N/A'}.
+Thank you!
+      `,
     };
-  }
-
-  const productList = products.map(p => `- ${p.name} (Wholesale: $${p.wholesalePrice})`).join('\n');
-
-  const prompt = `
-    You are an AI assistant for a wholesale platform.
-    Write a professional email from a merchant named "${user.firstName} ${user.lastName}" to the supplier.
-    
-    The merchant's contact info:
-    Phone: ${user.phone}
-    Email: ${user.email}
-
-    They are interested in the following products:
-    ${productList}
-
-    The email should be polite, concise, and ask for next steps regarding ordering.
-    Return the result as a JSON object with "subject" and "body" fields.
-  `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            subject: { type: Type.STRING },
-            body: { type: Type.STRING },
-          },
-          required: ["subject", "body"]
-        }
-      }
-    });
-
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
-    return JSON.parse(text);
-  } catch (error) {
-    console.error("Error generating email:", error);
-    // Fallback if AI fails
-    return {
-      subject: `Interest in ${products.length} products`,
-      body: `Hi,\n\nI am interested in buying: \n${productList}\n\nPlease contact me at ${user.phone}.`
-    };
-  }
+  
 };
 
 /**

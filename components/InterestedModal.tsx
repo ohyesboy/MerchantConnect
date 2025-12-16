@@ -112,7 +112,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
       const updatedUser = { ...currentUser, ...profileUpdate, uid: userKey };
 
       // 2. Generate Email Content using Gemini
-      const emailContent = await generateInterestEmail(updatedUser, selectedProducts, adminEmail);
+      const emailContent = await generateInterestEmail(updatedUser, selectedProducts);
 
       // 3. Open Mail Client (simulating "Send")
       const mailtoLink = `mailto:${adminEmail}?subject=${encodeURIComponent(emailContent.subject)}&body=${encodeURIComponent(emailContent.body)}`;

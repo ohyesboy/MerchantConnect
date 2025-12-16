@@ -14,6 +14,7 @@ export interface Product {
   }[];
   stock?: number;
   hidden?: boolean;
+  createdAt?: number; // Timestamp in milliseconds
 
 }
 
