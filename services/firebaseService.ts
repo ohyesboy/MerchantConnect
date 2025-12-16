@@ -84,8 +84,7 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
   if (!db) throw new Error("Database not initialized");
   const docRef = doc(db, "users", uid);
   // Do not inject or overwrite an internal `uid` field; write only provided profile fields.
-  // Explicitly exclude `email` from updates to avoid changing the document id / primary key.
-  const { email, uid: _ignoreUid, ...writeData } = data as any;
+  const { uid: _ignoreUid, ...writeData } = data as any;
   await setDoc(docRef, { ...writeData }, { merge: true });
 };
 

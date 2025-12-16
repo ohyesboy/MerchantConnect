@@ -19,8 +19,7 @@ export interface Product {
 }
 
 export interface UserProfile {
-  uid: string;
-  email: string | null;
+  uid: string; // Email address used as document ID in Firestore
   firstName: string;
   lastName: string;
   phone: string;

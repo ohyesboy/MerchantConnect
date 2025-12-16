@@ -22,12 +22,12 @@ export const generateInterestEmail = async (
     return {
       subject: `Interest in ${products.length} products`,
       body: `Hi,\n\nI am ${user.firstName} ${user.lastName} and am interested in the following products:
-      
+
       ${productListFallback}
 
-Please contact me at ${user.phone || user.email}.
+Please contact me at ${user.phone || user.uid}.
 My business name: ${user.businessName || 'N/A'}.
-Email: ${user.email || 'N/A'}.
+UID: ${user.uid || 'N/A'}.
 Phone: ${user.phone || 'N/A'}.
 Address: ${user.businessAddress ? `${user.businessAddress.street || ''}, ${user.businessAddress.city || ''}, ${user.businessAddress.state || ''} ${user.businessAddress.zipcode || ''}` : 'N/A'}.
 Thank you!

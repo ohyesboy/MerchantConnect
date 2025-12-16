@@ -19,7 +19,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   adminEmail
 }) => {
   const [formData, setFormData] = useState({
-    email: currentUser.email || '',
+    email: currentUser.uid || '',
     firstName: '',
     lastName: '',
     phone: '',
@@ -51,7 +51,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        email: currentUser.email || '',
+        email: currentUser.uid || '',
         firstName: currentUser.firstName || '',
         lastName: currentUser.lastName || '',
         phone: currentUser.phone || '',
@@ -84,7 +84,6 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
     try {
       // 1. Update User Profile in Firestore
       const profileUpdate: any = {
-        email: (formData as any).email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
@@ -96,8 +95,8 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
           zipcode: (formData as any).zipcode
         }
       };
-      // Use email as document id when available to update the existing user document
-      const userKey = currentUser.email ? currentUser.email : currentUser.uid;
+      // Use uid as document id to update the existing user document
+      const userKey = currentUser.uid;
       await updateUserProfile(userKey, profileUpdate);
       // Fetch the saved profile and notify the app so it can update its in-memory user.
       try {

@@ -19,6 +19,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 const adminEmail = import.meta.env.VITE_AdminEmail || '';
 const normalizedAdminEmail = adminEmail.trim().toLowerCase();
+const adminUid = normalizedAdminEmail; // Admin UID is the normalized admin email
 
 const App: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
@@ -57,7 +58,7 @@ const App: React.FC = () => {
     return 1;
   }, []);
 
-  const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && (user?.email || '').trim().toLowerCase() === normalizedAdminEmail;
+  const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail;
   const visibleSourceProducts = isAdmin ? products : products.filter(p => !(p as any).hidden);
 
   // Filtered products based on search. If search is empty, returns full products list.
@@ -105,15 +106,15 @@ const App: React.FC = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Use email as the user document ID when available
-        const userKey = firebaseUser.email ? firebaseUser.email : firebaseUser.uid;
+        const userKey = firebaseUser.email ;
+
         // Fetch additional profile data from Firestore (users collection keyed by email)
         let profile = await getUserProfile(userKey);
 
         if (!profile) {
-          // New user, save basic info (uid will be email or fallback uid)
+          // New user, save basic info
           profile = {
             uid: userKey,
-            email: firebaseUser.email,
             firstName: firebaseUser.displayName?.split(' ')[0] || '',
             lastName: firebaseUser.displayName?.split(' ')[1] || '',
             phone: '',
@@ -121,6 +122,7 @@ const App: React.FC = () => {
           };
           // In a real app we'd save this to Firestore immediately
         }
+        profile.uid = userKey; // Ensure uid is set to email
 
         setUser(profile);
         setViewState(ViewState.FEED);
@@ -296,10 +298,10 @@ const App: React.FC = () => {
                 <>
                   <div className="hidden md:flex flex-col text-right mr-2">
                     <span className="text-sm font-medium text-slate-800">{user.firstName} {user.lastName}</span>
-                    <span className="text-xs text-slate-500">{user.email}</span>
+                    <span className="text-xs text-slate-500">{user.uid}</span>
                   </div>
-  
-                  {((user.email || '').trim().toLowerCase() === normalizedAdminEmail) && (
+
+                  {(user.uid === normalizedAdminEmail) && (
                     <button 
                       onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
                       className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
@@ -376,7 +378,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        {viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail && (     
+        {viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail && (
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
 
           
@@ -417,7 +419,7 @@ const App: React.FC = () => {
               product={product} 
               isSelected={!!selectionMap[product.id]}
               onToggleSelect={toggleProductSelection}
-              isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.email === adminEmail}
+              isAdmin={viewState === ViewState.ADMIN_DASHBOARD && user?.uid === normalizedAdminEmail}
               onEdit={(p) => { setEditingProduct(p); setIsProductFormOpen(true); }}
             />
             ))
