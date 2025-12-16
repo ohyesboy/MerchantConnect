@@ -61,6 +61,8 @@ export const getFirebaseAuth = () => {
 export const loginWithGoogle = async () => {
   if (!auth) throw new Error("Firebase not initialized");
   const provider = new GoogleAuthProvider();
+  // Force account selection popup to appear every time
+  provider.setCustomParameters({ prompt: 'select_account' });
   return signInWithPopup(auth, provider);
 };
 
