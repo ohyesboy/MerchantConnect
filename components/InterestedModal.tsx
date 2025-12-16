@@ -310,7 +310,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
 
 
 
-                <div className="mb-3">
+                {/* <div className="mb-3">
                   <label className="inline-flex items-center">
                     <input
                       id="draftEmail"
@@ -321,7 +321,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
                     />
                     <span className="text-sm text-slate-700">Draft email for me.</span>
                   </label>
-                </div>
+                </div> */}
 
                 <div className="pt-4">
                   <button
@@ -333,7 +333,7 @@ export const InterestedModal: React.FC<InterestedModalProps> = ({
                       <i className="fas fa-circle-notch fa-spin"></i>
                     ) : (
                       <>
-                        Notify Supplier <i className="fas fa-arrow-right ml-2"></i>
+                        Draft Email <i className="fas fa-arrow-right ml-2"></i>
                       </>
                     )}
                   </button>
