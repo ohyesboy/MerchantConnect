@@ -3,7 +3,7 @@ import { getConfig, updateConfig } from '../services/firebaseService';
 
 interface Prompt {
   enabled: boolean;
-  imageSize: string;
+  ratio: string;
   name: string;
   prompt: string;
   weight?: number; // 0-10
@@ -14,7 +14,7 @@ interface Prompt {
 interface ConfigData {
   lastBagNum: number;
   prompts: Prompt[];
-  imageSize: string;
+  ratio: string;
   totalCost: number;
   totalImages: number;
   genImageCount: number;
@@ -108,7 +108,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
     if (!config) return;
     const newPrompt: Prompt = {
       enabled: true,
-      imageSize: '',
+      ratio: '',
       name: 'New Prompt',
       prompt: '',
       weight: 5,
@@ -157,11 +157,11 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Image Size
+                    Ratio
                   </label>
                   <select
-                    value={config.imageSize}
-                    onChange={(e) => setConfig({ ...config, imageSize: e.target.value })}
+                    value={config.ratio}
+                    onChange={(e) => setConfig({ ...config, ratio: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     {IMAGE_SIZE_OPTIONS.map(size => (
@@ -271,10 +271,10 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Image Size</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Ratio</label>
                             <select
-                              value={prompt.imageSize || ''}
-                              onChange={(e) => updatePrompt(index, 'imageSize', e.target.value)}
+                              value={prompt.ratio || ''}
+                              onChange={(e) => updatePrompt(index, 'ratio', e.target.value)}
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             >
                               <option key='' value=''>Inherit</option>
