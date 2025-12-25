@@ -7,7 +7,6 @@ interface Prompt {
   name: string;
   prompt: string;
   weight?: number; // 0-10
-  isdefault?: boolean;
   modelName?: string;
 }
 
@@ -19,6 +18,8 @@ interface ConfigData {
   totalImages: number;
   genImageCount: number;
   modelName: string;
+  prompt_beforetext?: string;
+  prompt_aftertext?: string;
 }
 
 interface EditConfigDialogProps {
@@ -35,6 +36,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedPromptIndex, setExpandedPromptIndex] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -188,20 +190,47 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Gen Image Count (Max: 5)
+                    Gen Image Count
                   </label>
                   <input
                     type="number"
                     min="1"
-                    max="5"
+                    max="8"
                     value={config.genImageCount}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      setConfig({ ...config, genImageCount: Math.min(Math.max(val, 1), 5) });
+                      setConfig({ ...config, genImageCount: Math.min(Math.max(val, 1), 8) });
                     }}
                     className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Prompt Text Fields */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Prompt Before Text
+                </label>
+                <textarea
+                  value={config.prompt_beforetext || ''}
+                  onChange={(e) => setConfig({ ...config, prompt_beforetext: e.target.value })}
+                  rows={3}
+                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  placeholder="Text to prepend to all prompts"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Prompt After Text
+                </label>
+                <textarea
+                  value={config.prompt_aftertext || ''}
+                  onChange={(e) => setConfig({ ...config, prompt_aftertext: e.target.value })}
+                  rows={3}
+                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  placeholder="Text to append to all prompts"
+                />
               </div>
 
               {/* Read-only Fields */}
@@ -252,9 +281,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                             className="w-4 h-4"
                           />
                           <span className="font-medium text-slate-700">{prompt.name}</span>
-                          {prompt.isdefault && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Default</span>
-                          )}
+           
                         </div>
                         <i className={`fas fa-chevron-${expandedPromptIndex === index ? 'up' : 'down'} text-slate-500`}></i>
                       </button>
@@ -316,17 +343,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             />
                           </div>
-                          <div className="flex gap-2">
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={prompt.isdefault || false}
-                                onChange={(e) => updatePrompt(index, 'isdefault', e.target.checked)}
-                                className="w-4 h-4"
-                              />
-                              <span>Set as Default</span>
-                            </label>
-                          </div>
+     
                           <button
                             onClick={() => removePrompt(index)}
                             className="w-20 bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 rounded-lg transition text-sm"
