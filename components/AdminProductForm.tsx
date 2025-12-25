@@ -23,6 +23,17 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  useEffect(() => {
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [onClose]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -189,7 +200,27 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
 
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
+            {/* Product ID (readonly) */}
+            {initialProduct && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Product ID</p>
+                  <p className="text-sm text-slate-700 font-mono break-all">{initialProduct.id}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(initialProduct.id);
+                  }}
+                  className="flex-shrink-0 p-2 hover:bg-slate-200 rounded-lg transition text-slate-600 hover:text-slate-800"
+                  title="Copy Product ID"
+                >
+                  <i className="fas fa-copy text-lg"></i>
+                </button>
+              </div>
+            )}
+
             {/* Image Upload Section */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Product Images</label>
