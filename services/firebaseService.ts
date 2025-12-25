@@ -225,15 +225,20 @@ export const uploadFilesToStorage = async (
   onProgress?: (fileName: string, progress: number) => void
 ): Promise<string[]> => {
   if (!storage) throw new Error("Storage not initialized");
+  if (files.length === 0) return [];
 
   const uploadedUrls: string[] = [];
+
+  // Create a temp folder with the name of the first file (without extension)
+  const firstFileName = files[0].name.split('.')[0];
+  const tempFolderName = `newupload/${firstFileName}`;
 
   for (const file of files) {
     try {
       // Create a unique filename with timestamp
       const timestamp = Date.now();
       const fileName = `${timestamp}_${file.name}`;
-      const storageRef = ref(storage, `newupload/${fileName}`);
+      const storageRef = ref(storage, `${tempFolderName}/${fileName}`);
 
       // Upload the file
       const snapshot = await uploadBytes(storageRef, file);
