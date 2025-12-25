@@ -8,6 +8,8 @@ interface Prompt {
   prompt: string;
   weight?: number; // 0-10
   modelName?: string;
+  skip_surrounding_prompt?: boolean;
+  always_use?: boolean;
 }
 
 interface ConfigData {
@@ -37,6 +39,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
   const [error, setError] = useState<string | null>(null);
   const [expandedPromptIndex, setExpandedPromptIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -117,6 +120,41 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
       modelName: ''
     };
     setConfig({ ...config, prompts: [...config.prompts, newPrompt] });
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (draggedIndex === null || draggedIndex === targetIndex || !config) return;
+
+    const newPrompts = [...config.prompts];
+    const draggedPrompt = newPrompts[draggedIndex];
+
+    // Remove from old position
+    newPrompts.splice(draggedIndex, 1);
+    // Insert at new position
+    newPrompts.splice(targetIndex, 0, draggedPrompt);
+
+    setConfig({ ...config, prompts: newPrompts });
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
   };
 
   if (!isOpen) return null;
@@ -267,12 +305,27 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
 
                 <div className="space-y-3">
                   {config.prompts.map((prompt, index) => (
-                    <div key={index} className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div key={index}>
+                      {dragOverIndex === index && draggedIndex !== index && (
+                        <div className="h-0.5 bg-blue-500 mb-2"></div>
+                      )}
+                      <div
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDrop={() => handleDrop(index)}
+                        onDragEnd={handleDragEnd}
+                        onDragLeave={handleDragLeave}
+                        className={`border border-slate-200 rounded-lg overflow-hidden transition ${
+                          draggedIndex === index ? 'opacity-50 bg-slate-100' : ''
+                        }`}
+                      >
                       <button
                         onClick={() => setExpandedPromptIndex(expandedPromptIndex === index ? null : index)}
-                        className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition"
+                        className="w-full p-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition cursor-move"
                       >
                         <div className="flex items-center gap-3 flex-1 text-left">
+                          <i className="fas fa-grip-vertical text-slate-400 cursor-grab active:cursor-grabbing"></i>
                           <input
                             type="checkbox"
                             checked={prompt.enabled}
@@ -281,7 +334,6 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                             className="w-4 h-4"
                           />
                           <span className="font-medium text-slate-700">{prompt.name}</span>
-           
                         </div>
                         <i className={`fas fa-chevron-${expandedPromptIndex === index ? 'up' : 'down'} text-slate-500`}></i>
                       </button>
@@ -343,7 +395,33 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             />
                           </div>
-     
+                          <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`skip-surrounding-${index}`}
+                                checked={prompt.skip_surrounding_prompt || false}
+                                onChange={(e) => updatePrompt(index, 'skip_surrounding_prompt', e.target.checked)}
+                                className="w-4 h-4"
+                              />
+                              <label htmlFor={`skip-surrounding-${index}`} className="text-sm font-medium text-slate-700">
+                                Skip surrounding prompt text
+                              </label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`always-use-${index}`}
+                                checked={prompt.always_use || false}
+                                onChange={(e) => updatePrompt(index, 'always_use', e.target.checked)}
+                                className="w-4 h-4"
+                              />
+                              <label htmlFor={`always-use-${index}`} className="text-sm font-medium text-slate-700">
+                                Always use
+                              </label>
+                            </div>
+                          </div>
+
                           <button
                             onClick={() => removePrompt(index)}
                             className="w-20 bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 rounded-lg transition text-sm"
@@ -352,6 +430,7 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                           </button>
                         </div>
                       )}
+                      </div>
                     </div>
                   ))}
                 </div>
