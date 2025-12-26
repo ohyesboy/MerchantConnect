@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { uploadFilesToStorage } from '../services/firebaseService';
+import { uploadFilesToStorage, uploadPromptsJson, getConfig } from '../services/firebaseService';
 
 interface BatchUploadDialogProps {
   isOpen: boolean;
@@ -11,6 +11,8 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [includeBackPrompt, setIncludeBackPrompt] = useState(true);
+  const [includeFrontPrompt, setIncludeFrontPrompt] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragOverRef = useRef(false);
 
@@ -60,15 +62,50 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
 
   const handleUpload = async () => {
     if (files.length === 0) return;
-    
+
     setUploading(true);
     setUploadedFiles([]);
-    
+
     try {
+      // Get the folder name from the first file
+      const firstFileName = files[0].name.split('.')[0];
+      const folderPath = `newupload/${firstFileName}`;
+
+      // Fetch config data and save prompts.json first
+      try {
+        const configData = await getConfig('function1');
+        if (configData && configData.prompts) {
+          // Make a copy of prompts and modify if needed
+          const promptsCopy = JSON.parse(JSON.stringify(configData.prompts));
+
+          // If "Back" prompt should not be included, disable it
+          if (!includeBackPrompt) {
+            const backPrompt = promptsCopy.find((p: any) => p.name.toLowerCase() === 'back');
+            if (backPrompt) {
+              backPrompt.enabled = false;
+            }
+          }
+
+          // If "Front" prompt should not be included, disable it
+          if (!includeFrontPrompt) {
+            const frontPrompt = promptsCopy.find((p: any) => p.name.toLowerCase() === 'front');
+            if (frontPrompt) {
+              frontPrompt.enabled = false;
+            }
+          }
+
+          await uploadPromptsJson(promptsCopy, folderPath);
+        }
+      } catch (error) {
+        console.warn('Warning: Could not upload prompts.json:', error);
+        // Continue with file upload even if prompts.json fails
+      }
+
+      // Upload image files
       const urls = await uploadFilesToStorage(files, (fileName, progress) => {
         setUploadProgress(prev => ({ ...prev, [fileName]: progress }));
       });
-      
+
       setUploadedFiles(urls);
       setFiles([]);
       setUploadProgress({});
@@ -84,6 +121,8 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
     setFiles([]);
     setUploadProgress({});
     setUploadedFiles([]);
+    setIncludeBackPrompt(true);
+    setIncludeFrontPrompt(true);
     onClose();
   };
 
@@ -164,6 +203,32 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
                   </div>
                 </div>
               )}
+
+              {/* Options */}
+              <div className="mt-6 p-4 bg-slate-50 rounded-lg space-y-3">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeBackPrompt}
+                    onChange={(e) => setIncludeBackPrompt(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 text-sm font-medium text-slate-700">
+                    Include "Back" prompt
+                  </span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeFrontPrompt}
+                    onChange={(e) => setIncludeFrontPrompt(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 text-sm font-medium text-slate-700">
+                    Include "Front" prompt
+                  </span>
+                </label>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex gap-3 mt-6">

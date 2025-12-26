@@ -329,3 +329,19 @@ export const deleteStorageFolder = async (folderName: string): Promise<void> => 
     throw error;
   }
 };
+
+export const uploadPromptsJson = async (prompts: any, folderPath: string): Promise<void> => {
+  if (!storage) throw new Error("Storage not initialized");
+  try {
+    const jsonData = JSON.stringify(prompts, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const file = new File([blob], 'prompts.json', { type: 'application/json' });
+
+    const storageRef = ref(storage, `${folderPath}/prompts.json`);
+    await uploadBytes(storageRef, file);
+    console.log(`Prompts JSON uploaded to ${folderPath}/prompts.json`);
+  } catch (error) {
+    console.error(`Error uploading prompts JSON:`, error);
+    throw error;
+  }
+};
