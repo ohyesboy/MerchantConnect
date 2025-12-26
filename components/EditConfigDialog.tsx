@@ -376,13 +376,13 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
                             </select>
                           </div>
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (0-10)</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (0-100)</label>
                             <input
                               type="number"
                               min="0"
-                              max="10"
-                              value={prompt.weight ?? 1}
-                              onChange={(e) => updatePrompt(index, 'weight', Math.min(Math.max(parseInt(e.target.value) || 0, 0), 10))}
+                              max="100"
+                              value={prompt.weight ?? 2}
+                              onChange={(e) => updatePrompt(index, 'weight', Math.min(Math.max(parseInt(e.target.value) || 0, 0), 100))}
                               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                             />
                           </div>
