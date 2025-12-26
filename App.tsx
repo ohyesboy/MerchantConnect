@@ -4,6 +4,7 @@ import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
 import { BatchUploadDialog } from './components/BatchUploadDialog';
 import { EditConfigDialog } from './components/EditConfigDialog';
+import { FilesCleanupDialog } from './components/FilesCleanupDialog';
 import { LoginPage } from './components/LoginPage';
 import {
   initFirebase,
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);
   const [isEditConfigOpen, setIsEditConfigOpen] = useState(false);
+  const [isFilesCleanupOpen, setIsFilesCleanupOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [newProductId, setNewProductId] = useState<string | null>(null);
   const [newProductSaved, setNewProductSaved] = useState(false);
@@ -487,6 +489,12 @@ const App: React.FC = () => {
             >
               <i className="fas fa-cog mr-2"></i> Edit Config
             </button>
+            <button
+              onClick={() => setIsFilesCleanupOpen(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
+            >
+              <i className="fas fa-trash-alt mr-2"></i> Files Cleanup
+            </button>
           </div>
        
         </div>
@@ -588,6 +596,11 @@ const App: React.FC = () => {
       <EditConfigDialog
         isOpen={isEditConfigOpen}
         onClose={() => setIsEditConfigOpen(false)}
+      />
+
+      <FilesCleanupDialog
+        isOpen={isFilesCleanupOpen}
+        onClose={() => setIsFilesCleanupOpen(false)}
       />
     </div>
   );

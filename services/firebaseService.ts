@@ -22,12 +22,13 @@ import {
   updateDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { 
-  getStorage, 
-  ref, 
-  uploadBytes, 
+import {
+  getStorage,
+  ref,
+  uploadBytes,
   getDownloadURL,
-  deleteObject 
+  deleteObject,
+  listAll
 } from 'firebase/storage';
 import { UserProfile, Product } from '../types';
 
@@ -279,4 +280,52 @@ export const updateConfig = async (docId: string, data: any): Promise<void> => {
   const docRef = doc(db, "configs", docId);
   // Save the data directly without wrapping
   await setDoc(docRef, data, { merge: false });
+};
+
+export const getProductIds = async (): Promise<string[]> => {
+  if (!db) throw new Error("Database not initialized");
+  try {
+    const productsRef = collection(db, "products");
+    const snap = await getDocs(productsRef);
+    return snap.docs.map(doc => doc.id);
+  } catch (error) {
+    console.error("Error fetching product IDs:", error);
+    throw error;
+  }
+};
+
+export const listStorageFolders = async (): Promise<string[]> => {
+  if (!storage) throw new Error("Storage not initialized");
+  try {
+    const productsRef = ref(storage, 'products');
+    const result = await listAll(productsRef);
+
+    // Extract unique folder names from the prefixes (subdirectories)
+    const folderNames = result.prefixes.map(prefix => prefix.name);
+    return folderNames;
+  } catch (error) {
+    console.error("Error listing storage folders:", error);
+    throw error;
+  }
+};
+
+export const deleteStorageFolder = async (folderName: string): Promise<void> => {
+  if (!storage) throw new Error("Storage not initialized");
+  try {
+    const folderRef = ref(storage, `products/${folderName}`);
+    const result = await listAll(folderRef);
+
+    // Delete all files in the folder
+    for (const file of result.items) {
+      await deleteObject(file);
+    }
+
+    // Recursively delete all subfolders
+    for (const subfolder of result.prefixes) {
+      await deleteStorageFolder(`${folderName}/${subfolder.name}`);
+    }
+  } catch (error) {
+    console.error(`Error deleting folder ${folderName}:`, error);
+    throw error;
+  }
 };
