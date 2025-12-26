@@ -22,6 +22,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -156,6 +157,47 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
     }
   };
 
+  const handleMoveImage = async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= images.length) return;
+    
+    const newImages = [...images];
+    const [movedImage] = newImages.splice(fromIndex, 1);
+    newImages.splice(toIndex, 0, movedImage);
+    
+    setImages(newImages);
+    
+    // Update in Firestore immediately if editing
+    if (initialProduct) {
+      await updateProduct(initialProduct.id, { images: newImages });
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+    
+    await handleMoveImage(draggedIndex, dropIndex);
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -226,9 +268,54 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
               <label className="block text-sm font-medium text-slate-700 mb-2">Product Images</label>
               <div className="flex flex-wrap gap-3">
                 {images.map((imgObj, idx) => (
-                  <div key={idx} className="w-20 h-20 rounded-lg overflow-hidden border border-slate-200 relative group">
-                    <img src={imgObj.urls?.small || imgObj.urls?.big || imgObj.small || imgObj.big || imgObj} alt="Preview" className="w-full h-full object-cover" />
-                    <button 
+                  <div
+                    key={idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 relative group cursor-move ${
+                      draggedIndex === idx ? 'opacity-50 border-blue-500' : 'border-slate-200'
+                    }`}
+                  >
+                    {/* Image number badge */}
+                    <div className="absolute top-1 left-1 bg-black/70 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold z-10">
+                      {idx + 1}
+                    </div>
+                    
+                    <img
+                      src={imgObj.urls?.small || imgObj.urls?.big || imgObj.small || imgObj.big || imgObj}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Reorder buttons */}
+                    <div className="absolute bottom-1 left-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveImage(idx, idx - 1)}
+                          className="flex-1 bg-blue-500 text-white rounded text-xs py-0.5 hover:bg-blue-600"
+                          title="Move left"
+                        >
+                          <i className="fas fa-chevron-left"></i>
+                        </button>
+                      )}
+                      {idx < images.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveImage(idx, idx + 1)}
+                          className="flex-1 bg-blue-500 text-white rounded text-xs py-0.5 hover:bg-blue-600"
+                          title="Move right"
+                        >
+                          <i className="fas fa-chevron-right"></i>
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Delete button */}
+                    <button
                       type="button"
                       onClick={async () => {
                         // Delete from Storage if it's a Firebase URL (in edit mode)
@@ -243,7 +330,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                           await updateProduct(initialProduct.id, { images: newImages });
                         }
                       }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10 hover:bg-red-600"
                     >
                       <i className="fas fa-times"></i>
                     </button>
@@ -264,6 +351,12 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
                 </label>
               </div>
+              {images.length > 1 && (
+                <p className="mt-2 text-xs text-slate-500">
+                  <i className="fas fa-arrows-alt mr-1"></i>
+                  Drag thumbnails to reorder, or use arrow buttons on hover
+                </p>
+              )}
               {uploading && (
                 <div className="mt-2 text-blue-600 text-sm flex items-center animate-pulse">
                   <i className="fas fa-cloud-upload-alt mr-2"></i> Uploading image...
