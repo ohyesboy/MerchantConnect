@@ -96,12 +96,11 @@ export const EditConfigDialog: React.FC<EditConfigDialogProps> = ({ isOpen, onCl
   };
 
   const updatePrompt = (index: number, field: keyof Prompt, value: any) => {
-    console.log("updatePrompt",index,field,value==='');
     if (!config) return;
     const newPrompts = [...config.prompts];
     newPrompts[index] = { ...newPrompts[index], [field]: value };
     setConfig({ ...config, prompts: newPrompts });
-    console.log("Updated prompts:", newPrompts);
+   
   };
 
   const removePrompt = (index: number) => {
