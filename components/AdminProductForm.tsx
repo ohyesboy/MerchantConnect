@@ -28,6 +28,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
   const [showCopied, setShowCopied] = useState(false);
   const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(false);
+  const [hoverImageIndex, setHoverImageIndex] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState('');
 
   useEffect(() => {
@@ -300,7 +301,9 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 relative group cursor-move ${
+                    onMouseEnter={() => setHoverImageIndex(idx)}
+                    onMouseLeave={() => setHoverImageIndex(null)}
+                    className={`w-20 h-20 rounded-lg overflow-visible border-2 relative group cursor-move ${
                       draggedIndex === idx ? 'opacity-50 border-blue-500' : 'border-slate-200'
                     }`}
                   >
@@ -308,12 +311,14 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                     <div className="absolute top-1 left-1 bg-black/70 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold z-10">
                       {idx + 1}
                     </div>
-                    
-                    <img
-                      src={imgObj.urls?.small || imgObj.urls?.big || imgObj.small || imgObj.big || imgObj}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
+
+                    <div className="w-full h-full overflow-hidden rounded-lg">
+                      <img
+                        src={imgObj.urls?.small || imgObj.urls?.big || imgObj.small || imgObj.big || imgObj}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     
                     {/* Reorder buttons */}
                     <div className="absolute bottom-1 left-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -347,6 +352,19 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                     >
                       <i className="fas fa-times"></i>
                     </button>
+
+                    {/* Image Preview on Hover */}
+                    {hoverImageIndex === idx && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 pointer-events-none">
+                        <div className="w-60 h-60 rounded-lg overflow-hidden border-2 border-slate-300 shadow-lg bg-white">
+                          <img
+                            src={imgObj.urls?.medium || imgObj.urls?.big || imgObj.urls?.small || imgObj.medium || imgObj.big || imgObj.small || imgObj}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <label className={`w-20 h-20 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition text-slate-400 hover:text-blue-500 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
@@ -522,13 +540,15 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                     try {
                       const imgObj = images[deleteConfirmIndex];
                       // Delete all 3 sizes from Storage if they're Firebase URLs
-                      if (product && imgObj.urls) {
+                      if (imgObj && imgObj.urls) {
                         const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
                           url => url && url.includes('firebasestorage.googleapis.com')
                         );
-                        for (const url of urlsToDelete) {
-                          await deleteProductImage(url);
-                        }
+                        console.log('Deleting image URLs:', urlsToDelete);
+                        // Delete all URLs, even if some fail
+                        const deletePromises = urlsToDelete.map(url => deleteProductImage(url));
+                        await Promise.all(deletePromises);
+                        console.log('Image deletion completed');
                       }
                       const newImages = images.filter((_, i) => i !== deleteConfirmIndex);
                       setImages(newImages);
@@ -618,16 +638,18 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                       if (product) {
                         // Delete all images from storage
                         if (product.images && product.images.length > 0) {
+                          const allUrlsToDelete: string[] = [];
                           for (const imgObj of product.images) {
                             if (imgObj.urls) {
                               const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
                                 url => url && url.includes('firebasestorage.googleapis.com')
                               );
-                              for (const url of urlsToDelete) {
-                                await deleteProductImage(url);
-                              }
+                              allUrlsToDelete.push(...urlsToDelete);
                             }
                           }
+                          // Delete all URLs in parallel
+                          const deletePromises = allUrlsToDelete.map(url => deleteProductImage(url));
+                          await Promise.all(deletePromises);
                         }
                         // Delete the product from Firestore
                         await deleteProduct(product.id);

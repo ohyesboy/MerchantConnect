@@ -194,16 +194,22 @@ export const updateProduct = async (id: string, product: Partial<Omit<Product, '
 
 export const uploadProductImage = async (file: File, productId?: string): Promise<string> => {
   if (!storage) throw new Error("Storage not initialized");
-  
+
   const timestamp = Date.now();
   const fileName = `${timestamp}_${file.name}`;
-  const path = productId 
-    ? `products/${productId}/${fileName}` 
+  const path = productId
+    ? `products/${productId}/${fileName}`
     : `products/temp/${fileName}`;
-  
+
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(storageRef);
+
+  // Store the path in sessionStorage so we can retrieve it later for deletion
+  const urlToPathMap = JSON.parse(sessionStorage.getItem('urlToPathMap') || '{}');
+  urlToPathMap[downloadURL] = path;
+  sessionStorage.setItem('urlToPathMap', JSON.stringify(urlToPathMap));
+
   return downloadURL;
 };
 
@@ -211,10 +217,34 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
   if (!storage) throw new Error("Storage not initialized");
 
   try {
-    // Create a reference from the URL
-    const storageRef = ref(storage, imageUrl);
+    // First, try to get the path from our URL-to-path mapping
+    const urlToPathMap = JSON.parse(sessionStorage.getItem('urlToPathMap') || '{}');
+    let storagePath = urlToPathMap[imageUrl];
+
+    // If not found in mapping, try to extract from URL
+    if (!storagePath) {
+      const urlObj = new URL(imageUrl);
+      const pathname = urlObj.pathname;
+
+      // Extract everything after /o/ and before the query string
+      const pathMatch = pathname.match(/\/o\/(.+)$/);
+
+      if (!pathMatch || !pathMatch[1]) {
+        console.warn("Could not extract path from image URL:", imageUrl);
+        console.warn("Pathname was:", pathname);
+        return;
+      }
+
+      // Decode the path (Firebase encodes special characters)
+      storagePath = decodeURIComponent(pathMatch[1]);
+    }
+
+    console.log("Attempting to delete image at path:", storagePath);
+
+    // Create a reference from the path
+    const storageRef = ref(storage, storagePath);
     await deleteObject(storageRef);
-    console.log("Image deleted from storage:", imageUrl);
+    console.log("Image deleted from storage:", storagePath);
   } catch (err) {
     console.error("Failed to delete image from storage:", err);
     // Don't throw - image might already be deleted or URL might be invalid
