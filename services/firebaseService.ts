@@ -213,6 +213,53 @@ export const uploadProductImage = async (file: File, productId?: string): Promis
   return downloadURL;
 };
 
+// Test function to debug URL extraction
+export const testUrlExtraction = (imageUrl: string): string | null => {
+  console.log("=== Testing URL extraction ===");
+  console.log("URL:", imageUrl);
+
+  const urlObj = new URL(imageUrl);
+  const pathname = urlObj.pathname;
+  const fullPath = pathname + urlObj.search;
+
+  console.log("Pathname:", pathname);
+  console.log("Full path:", fullPath);
+
+  // Try Format 1: /v0/b/{bucket}/o/{path}
+  let pathMatch = fullPath.match(/\/o\/([^?]+)/);
+  if (pathMatch && pathMatch[1]) {
+    const result = decodeURIComponent(pathMatch[1]);
+    console.log("✓ Matched Format 1, extracted:", result);
+    return result;
+  }
+
+  // Try Format 2 & 3: /{bucket}/products/{path} or /{bucket}/o/{path}
+  pathMatch = pathname.match(/\/[^/]+\/((?:products|o).*)$/);
+  if (pathMatch && pathMatch[1]) {
+    const result = decodeURIComponent(pathMatch[1]);
+    console.log("✓ Matched Format 2/3, extracted:", result);
+    return result;
+  }
+
+  // Fallback
+  if (pathname.includes('/products/')) {
+    const idx = pathname.indexOf('/products/');
+    const result = decodeURIComponent(pathname.substring(idx + 1));
+    console.log("✓ Matched fallback (products/), extracted:", result);
+    return result;
+  }
+
+  if (pathname.includes('/o/')) {
+    const idx = pathname.indexOf('/o/');
+    const result = decodeURIComponent(pathname.substring(idx + 1));
+    console.log("✓ Matched fallback (o/), extracted:", result);
+    return result;
+  }
+
+  console.warn("✗ Could not extract path");
+  return null;
+};
+
 export const deleteProductImage = async (imageUrl: string): Promise<void> => {
   if (!storage) throw new Error("Storage not initialized");
 
@@ -223,30 +270,75 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
 
     // If not found in mapping, try to extract from URL
     if (!storagePath) {
+      console.log("=== Attempting to extract path from URL ===");
+      console.log("URL to delete:", imageUrl);
+
       const urlObj = new URL(imageUrl);
       const pathname = urlObj.pathname;
+      const hostname = urlObj.hostname;
+      const fullPath = pathname + urlObj.search;
 
-      // Extract everything after /o/ and before the query string
-      const pathMatch = pathname.match(/\/o\/(.+)$/);
+      console.log("Hostname:", hostname);
+      console.log("Pathname:", pathname);
+      console.log("Full path with search:", fullPath);
 
-      if (!pathMatch || !pathMatch[1]) {
-        console.warn("Could not extract path from image URL:", imageUrl);
-        console.warn("Pathname was:", pathname);
-        return;
+      // Handle multiple Firebase URL formats:
+      // Format 1: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_path}?...
+      //           pathname: /v0/b/merchantconnect-137b7.firebasestorage.app/o/products%2F...
+      // Format 2: https://storage.googleapis.com/{bucket}/products/{path}
+      //           pathname: /merchantconnect-137b7.firebasestorage.app/products/...
+      // Format 3: https://storage.googleapis.com/{bucket}/o/{encoded_path}?...
+      //           pathname: /merchantconnect-137b7.firebasestorage.app/o/products%2F...
+
+      // Try Format 1: /v0/b/{bucket}/o/{path}
+      let pathMatch = fullPath.match(/\/o\/([^?]+)/);
+      if (pathMatch && pathMatch[1]) {
+        console.log("Matched Format 1 (firebasestorage.googleapis.com with /o/)");
+        storagePath = decodeURIComponent(pathMatch[1]);
+      } else {
+        // Try Format 2 & 3: /{bucket}/products/{path} or /{bucket}/o/{path}
+        pathMatch = pathname.match(/\/[^/]+\/((?:products|o).*)$/);
+        if (pathMatch && pathMatch[1]) {
+          console.log("Matched Format 2/3 (storage.googleapis.com)");
+          storagePath = decodeURIComponent(pathMatch[1]);
+        } else {
+          // Last resort: try to extract anything that looks like a storage path
+          // Look for 'products/' or 'o/' anywhere in the pathname
+          if (pathname.includes('/products/')) {
+            const idx = pathname.indexOf('/products/');
+            storagePath = decodeURIComponent(pathname.substring(idx + 1));
+            console.log("Matched fallback pattern (products/)");
+          } else if (pathname.includes('/o/')) {
+            const idx = pathname.indexOf('/o/');
+            storagePath = decodeURIComponent(pathname.substring(idx + 1));
+            console.log("Matched fallback pattern (o/)");
+          } else {
+            console.warn("Could not extract path from image URL:", imageUrl);
+            console.warn("Pathname:", pathname);
+            console.warn("Tried patterns: /o/, /{bucket}/products/, /{bucket}/o/");
+            return;
+          }
+        }
       }
 
-      // Decode the path (Firebase encodes special characters)
-      storagePath = decodeURIComponent(pathMatch[1]);
+      console.log("Extracted storage path:", storagePath);
+    } else {
+      console.log("Using stored path from mapping:", storagePath);
     }
 
     console.log("Attempting to delete image at path:", storagePath);
 
     // Create a reference from the path
     const storageRef = ref(storage, storagePath);
+    console.log("Storage reference created, calling deleteObject...");
+
     await deleteObject(storageRef);
-    console.log("Image deleted from storage:", storagePath);
-  } catch (err) {
-    console.error("Failed to delete image from storage:", err);
+    console.log("✓ Image deleted from storage:", storagePath);
+  } catch (err: any) {
+    console.error("✗ Failed to delete image from storage");
+    console.error("Error code:", err?.code);
+    console.error("Error message:", err?.message);
+    console.error("Full error:", err);
     // Don't throw - image might already be deleted or URL might be invalid
   }
 };

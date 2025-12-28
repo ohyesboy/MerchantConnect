@@ -34,6 +34,11 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Prevent closing while uploading or deleting images
+        if (uploading || deleting) {
+          return;
+        }
+
         // If delete image modal is open, close only that
         if (deleteConfirmIndex !== null) {
           setDeleteConfirmIndex(null);
@@ -52,7 +57,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
 
     window.addEventListener('keydown', handleEscapeKey);
     return () => window.removeEventListener('keydown', handleEscapeKey);
-  }, [onClose, deleteConfirmIndex, showDeleteProductConfirm]);
+  }, [onClose, deleteConfirmIndex, showDeleteProductConfirm, uploading, deleting]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -254,7 +259,11 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
           <h2 className="text-xl font-bold text-slate-800">
             {product ? 'Edit Product' : 'Add New Product'}
           </h2>
-          <button onClick={() => onClose(false)} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={() => onClose(false)}
+            disabled={uploading || deleting}
+            className={`text-slate-400 hover:text-slate-600 ${uploading || deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
@@ -475,7 +484,8 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                   <button
                     type="button"
                     onClick={() => setShowDeleteProductConfirm(true)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-md transition"
+                    disabled={uploading || deleting}
+                    className={`px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-md transition ${uploading || deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <i className="fas fa-trash-alt mr-2"></i>
                     Delete Product
@@ -486,14 +496,15 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                 <button
                   type="button"
                   onClick={() => onClose(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
+                  disabled={uploading || deleting}
+                  className={`px-4 py-2 text-slate-600 hover:text-slate-800 font-medium ${uploading || deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition"
+                  disabled={saving || uploading || deleting}
+                  className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition ${saving || uploading || deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {saving ? 'Saving...' : 'Save Product'}
                 </button>
@@ -542,7 +553,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                       // Delete all 3 sizes from Storage if they're Firebase URLs
                       if (imgObj && imgObj.urls) {
                         const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
-                          url => url && url.includes('firebasestorage.googleapis.com')
+                          url => url && (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com'))
                         );
                         console.log('Deleting image URLs:', urlsToDelete);
                         // Delete all URLs, even if some fail
