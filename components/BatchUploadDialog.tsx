@@ -11,7 +11,7 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
-  const [includeBackPrompt, setIncludeBackPrompt] = useState(true);
+  const [includeBackPrompt, setIncludeBackPrompt] = useState(false);
   const [includeFrontPrompt, setIncludeFrontPrompt] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragOverRef = useRef(false);
@@ -31,12 +31,12 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
-    
+
     const newFiles = Array.from(selectedFiles).filter(file => {
       const isValidType = ['image/png', 'image/jpeg'].includes(file.type);
       return isValidType;
     });
-    
+
     setFiles(prev => [...prev, ...newFiles]);
   };
 
@@ -121,7 +121,7 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
     setFiles([]);
     setUploadProgress({});
     setUploadedFiles([]);
-    setIncludeBackPrompt(true);
+    setIncludeBackPrompt(false);
     setIncludeFrontPrompt(true);
     onClose();
   };
@@ -150,11 +150,10 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${
-                  dragOverRef.current
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${dragOverRef.current
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-slate-300 hover:border-blue-400'
-                }`}
+                  }`}
               >
                 <i className="fas fa-image text-4xl text-slate-400 mb-3 block"></i>
                 <p className="text-slate-700 font-medium">Drag and drop images here</p>
@@ -206,17 +205,7 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
 
               {/* Options */}
               <div className="mt-6 p-4 bg-slate-50 rounded-lg space-y-3">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeBackPrompt}
-                    onChange={(e) => setIncludeBackPrompt(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="ml-3 text-sm font-medium text-slate-700">
-                    Include "Back" prompt
-                  </span>
-                </label>
+
                 <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -226,6 +215,18 @@ export const BatchUploadDialog: React.FC<BatchUploadDialogProps> = ({ isOpen, on
                   />
                   <span className="ml-3 text-sm font-medium text-slate-700">
                     Include "Front" prompt
+                  </span>
+                </label>
+
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeBackPrompt}
+                    onChange={(e) => setIncludeBackPrompt(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 text-sm font-medium text-slate-700">
+                    Include "Back" prompt
                   </span>
                 </label>
               </div>
