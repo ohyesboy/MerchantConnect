@@ -25,6 +25,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -256,11 +257,18 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(product.id);
+                    setShowCopied(true);
+                    setTimeout(() => setShowCopied(false), 1000);
                   }}
-                  className="flex-shrink-0 p-2 hover:bg-slate-200 rounded-lg transition text-slate-600 hover:text-slate-800"
+                  className="flex-shrink-0 p-2 hover:bg-slate-200 rounded-lg transition text-slate-600 hover:text-slate-800 relative"
                   title="Copy Product ID"
                 >
                   <i className="fas fa-copy text-lg"></i>
+                  {showCopied && (
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in">
+                      Copied!
+                    </span>
+                  )}
                 </button>
               </div>
             )}
