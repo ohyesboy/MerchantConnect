@@ -6,23 +6,25 @@ import { useEffect, useRef } from 'react';
 
 interface AdminProductFormProps {
   onClose: (saved?: boolean) => void;
-  initialProduct?: Product;
+  product?: Product;
   onSave?: () => void;
 }
 
-export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, initialProduct }) => {
+export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, product }) => {
   // ...existing code...
-  const [name, setName] = useState(initialProduct?.name || '');
-  const [description, setDescription] = useState(initialProduct?.description || '');
-  const [wholesalePrice, setWholesalePrice] = useState(initialProduct?.wholesalePrice?.toString() || '');
-  const [retailPrice, setRetailPrice] = useState(initialProduct?.retailPrice?.toString() || '');
-  const [images, setImages] = useState<any[]>(initialProduct?.images || []);
-  const [hidden, setHidden] = useState<boolean>(!!initialProduct?.hidden);
-  const [stock, setStock] = useState(initialProduct?.stock?.toString() || '1');
+  const [name, setName] = useState(product?.name || '');
+  const [description, setDescription] = useState(product?.description || '');
+  const [wholesalePrice, setWholesalePrice] = useState(product?.wholesalePrice?.toString() || '');
+  const [retailPrice, setRetailPrice] = useState(product?.retailPrice?.toString() || '');
+  const [images, setImages] = useState<any[]>(product?.images || []);
+  const [hidden, setHidden] = useState<boolean>(!!product?.hidden);
+  const [stock, setStock] = useState(product?.stock?.toString() || '1');
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -109,9 +111,9 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         const bigFile = new File([bigBlob], file.name.replace(/(\.[^.]+)$/, '_big$1'), { type: 'image/jpeg' });
 
         // Upload medium first (hero), then small (thumbnails), then big (full-size)
-        const mediumURL = await uploadProductImage(mediumFile, initialProduct?.id);
-        const smallURL = await uploadProductImage(thumbFile, initialProduct?.id);
-        const bigURL = await uploadProductImage(bigFile, initialProduct?.id);
+        const mediumURL = await uploadProductImage(mediumFile, product?.id);
+        const smallURL = await uploadProductImage(thumbFile, product?.id);
+        const bigURL = await uploadProductImage(bigFile, product?.id);
 
         const imageObj = {
           name: file.name,
@@ -124,8 +126,8 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
 
         setImages(prev => {
           const newImages = [...prev, imageObj];
-          if (initialProduct) {
-            updateProduct(initialProduct.id, { images: newImages });
+          if (product) {
+            updateProduct(product.id, { images: newImages });
           }
           return newImages;
         });
@@ -159,16 +161,16 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
 
   const handleMoveImage = async (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= images.length) return;
-    
+
     const newImages = [...images];
     const [movedImage] = newImages.splice(fromIndex, 1);
     newImages.splice(toIndex, 0, movedImage);
-    
+
     setImages(newImages);
-    
+
     // Update in Firestore immediately if editing
-    if (initialProduct) {
-      await updateProduct(initialProduct.id, { images: newImages });
+    if (product) {
+      await updateProduct(product.id, { images: newImages });
     }
   };
 
@@ -209,16 +211,16 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
         retailPrice: parseFloat(retailPrice),
         stock: Number.parseInt(stock) || 1,
         images,
-        createdAt: initialProduct?.createdAt || Date.now(),
+        createdAt: product?.createdAt || Date.now(),
         hidden: !!hidden,
       };
 
 
-      if (initialProduct) {
-        console.log("Updating product:", initialProduct.id);
-        await updateProduct(initialProduct.id, productData);
+      if (product) {
+        console.log("Updating product:", product.id);
+        await updateProduct(product.id, productData);
       }
-  
+
       onClose(true);
     } catch (err) {
       console.error("Failed to save product:", err);
@@ -233,7 +235,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-800">
-            {initialProduct ? 'Edit Product' : 'Add New Product'}
+            {product ? 'Edit Product' : 'Add New Product'}
           </h2>
           <button onClick={() => onClose(false)} className="text-slate-400 hover:text-slate-600">
             <i className="fas fa-times text-xl"></i>
@@ -244,16 +246,16 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
           <form onSubmit={handleSubmit} className="space-y-6">
 
             {/* Product ID (readonly) */}
-            {initialProduct && (
+            {product && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Product ID</p>
-                  <p className="text-sm text-slate-700 font-mono break-all">{initialProduct.id}</p>
+                  <p className="text-sm text-slate-700 font-mono break-all">{product.id}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(initialProduct.id);
+                    navigator.clipboard.writeText(product.id);
                   }}
                   className="flex-shrink-0 p-2 hover:bg-slate-200 rounded-lg transition text-slate-600 hover:text-slate-800"
                   title="Copy Product ID"
@@ -317,19 +319,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
                     {/* Delete button */}
                     <button
                       type="button"
-                      onClick={async () => {
-                        // Delete from Storage if it's a Firebase URL (in edit mode)
-                        const urlToDelete = imgObj.urls?.big || imgObj.urls?.small || imgObj.big || imgObj.small || imgObj;
-                        if (initialProduct && urlToDelete && urlToDelete.includes('firebasestorage.googleapis.com')) {
-                          await deleteProductImage(urlToDelete);
-                        }
-                        const newImages = images.filter((_, i) => i !== idx);
-                        setImages(newImages);
-                        // If editing an existing product, update images in Firestore immediately
-                        if (initialProduct) {
-                          await updateProduct(initialProduct.id, { images: newImages });
-                        }
-                      }}
+                      onClick={() => setDeleteConfirmIndex(idx)}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10 hover:bg-red-600"
                     >
                       <i className="fas fa-times"></i>
@@ -457,6 +447,66 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, ini
           </form>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                <i className="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
+                Delete Image?
+              </h3>
+              <p className="text-slate-600 text-center mb-6">
+                This will permanently delete the image and all its sizes from storage. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmIndex(null)}
+                  className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      const imgObj = images[deleteConfirmIndex];
+                      // Delete all 3 sizes from Storage if they're Firebase URLs
+                      if (product && imgObj.urls) {
+                        const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
+                          url => url && url.includes('firebasestorage.googleapis.com')
+                        );
+                        for (const url of urlsToDelete) {
+                          await deleteProductImage(url);
+                        }
+                      }
+                      const newImages = images.filter((_, i) => i !== deleteConfirmIndex);
+                      setImages(newImages);
+                      // If editing an existing product, update images in Firestore immediately
+                      if (product) {
+                        await updateProduct(product.id, { images: newImages });
+                      }
+                      setDeleteConfirmIndex(null);
+                    } catch (err) {
+                      console.error('Failed to delete image:', err);
+                      alert('Failed to delete image. Please try again.');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white rounded-lg font-medium transition"
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

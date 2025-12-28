@@ -583,7 +583,7 @@ const App: React.FC = () => {
             setNewProductId(null);
             setNewProductSaved(false);
           }}
-          initialProduct={editingProduct}
+          product={editingProduct}
           onSave={() => setNewProductSaved(true)}
         />
       )}
