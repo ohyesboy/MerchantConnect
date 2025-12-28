@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ProductCard } from './components/ProductCard';
 import { InterestedModal } from './components/InterestedModal';
 import { AdminProductForm } from './components/AdminProductForm';
@@ -48,21 +48,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
 
-  const ROWS_PER_BATCH = 4;
-  const [visibleCount, setVisibleCount] = useState<number>(() => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const cols = w >= 1280 ? 4 : w >= 1024 ? 3 : w >= 640 ? 2 : 1;
-    return cols * ROWS_PER_BATCH;
-  });
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const columnsRef = useRef<number>(1);
 
-  const getColumnsForWidth = useCallback((w: number) => {
-    if (w >= 1280) return 4; // xl
-    if (w >= 1024) return 3; // lg
-    if (w >= 640) return 2;  // sm
-    return 1;
-  }, []);
 
   const isAdmin = viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid);
   const visibleSourceProducts = isAdmin ? products : products.filter(p => !(p as any).hidden);
@@ -261,56 +247,7 @@ const App: React.FC = () => {
     });
   };
 
-  // Ensure initial visibleCount and update when products change
-  useEffect(() => {
-    const cols = getColumnsForWidth(typeof window !== 'undefined' ? window.innerWidth : 1024);
-    columnsRef.current = cols;
-    const batch = cols * ROWS_PER_BATCH;
-    if (searchTerm.trim()) {
-      setVisibleCount(Math.min(filteredProducts.length, Math.max(0, filteredProducts.length)));
-    } else {
-      setVisibleCount(prev => Math.min(Math.max(prev, batch), visibleSourceProducts.length || batch));
-    }
-  }, [visibleSourceProducts.length, filteredProducts.length, getColumnsForWidth, searchTerm, remoteResults]);
 
-  // Handle window resize to update columns and ensure at least one batch visible
-  useEffect(() => {
-    const onResize = () => {
-      const newCols = getColumnsForWidth(window.innerWidth);
-      const prevCols = columnsRef.current;
-      columnsRef.current = newCols;
-      if (prevCols !== newCols) {
-        const minVisible = newCols * ROWS_PER_BATCH;
-        if (searchTerm.trim()) {
-          setVisibleCount(filteredProducts.length);
-        } else {
-          setVisibleCount(prev => Math.max(prev, Math.min(minVisible, visibleSourceProducts.length)));
-        }
-      }
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [getColumnsForWidth, visibleSourceProducts.length]);
-
-  // IntersectionObserver to load next batches when sentinel intersects
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          setVisibleCount(prev => {
-            const cols = columnsRef.current || getColumnsForWidth(window.innerWidth);
-            const batch = cols * ROWS_PER_BATCH;
-            const total = remoteResults !== null ? (isAdmin ? remoteResults.length : remoteResults.filter(p => !(p as any).hidden).length) : (searchTerm.trim() ? filteredProducts.length : visibleSourceProducts.length);
-            return Math.min(prev + batch, total);
-          });
-        }
-      });
-    }, { root: null, rootMargin: '200px', threshold: 0.1 });
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [products.length, filteredProducts.length, getColumnsForWidth, searchTerm]);
 
   // Rendering
 
@@ -406,40 +343,43 @@ const App: React.FC = () => {
         <div className="mb-4">
           <div className="max-w-7xl mx-auto px-0 sm:px-0">
             <div className="flex items-center gap-3">
-              <input
-                aria-label="Search products"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  // Clear any prior remote results when user edits the query
-                  if (remoteResults !== null) setRemoteResults(null);
-                }}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    const q = searchTerm.trim();
-                    if (!q) {
-                      // If empty, clear remoteResults and do nothing
+              <div className="flex-grow relative">
+                <input
+                  aria-label="Search products"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    // Clear any prior remote results when user edits the query
+                    if (remoteResults !== null) setRemoteResults(null);
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      const q = searchTerm.trim();
+                      if (!q) {
+                        // If empty, clear remoteResults and do nothing
+                        setRemoteResults(null);
+                        setIsRemoteSearching(false);
+                        return;
+                      }
+                      setIsRemoteSearching(true);
                       setRemoteResults(null);
-                      setIsRemoteSearching(false);
-                      return;
+                      try {
+                        const results = await searchProducts(q);
+                        setRemoteResults(results);
+                      } catch (err) {
+                        console.error('Search failed', err);
+                      } finally {
+                        setIsRemoteSearching(false);
+                      }
                     }
-                    setIsRemoteSearching(true);
-                    setRemoteResults(null);
-                    try {
-                      const results = await searchProducts(q);
-                      setRemoteResults(results);
-                      // Ensure visibleCount shows results (show all search results)
-                      setVisibleCount(results.length);
-                    } catch (err) {
-                      console.error('Search failed', err);
-                    } finally {
-                      setIsRemoteSearching(false);
-                    }
-                  }
-                }}
-                className="flex-grow px-4 py-2 rounded-lg border border-slate-200 bg-white shadow-sm focus:outline-none"
-                placeholder="Search products by name or description..."
-              />
+                  }}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white shadow-sm focus:outline-none"
+                  placeholder="Search products by name or description..."
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-sm text-slate-500 font-medium pointer-events-none">
+                  {displayedProducts.length} {displayedProducts.length === 1 ? 'product' : 'products'}
+                </div>
+              </div>
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
@@ -506,7 +446,7 @@ const App: React.FC = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             </div>
           ) : (
-            displayedProducts.slice(0, visibleCount).map(product => (
+            displayedProducts.map(product => (
             <ProductCard
               key={product.id}
               product={product}
@@ -524,9 +464,6 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Sentinel observed to load next batches when scrolled into view */}
-        <div ref={sentinelRef} aria-hidden="true" />
       </main>
 
       {/* Sticky Action Bar for Merchants */}
