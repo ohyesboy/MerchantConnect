@@ -28,17 +28,30 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
   const [showCopied, setShowCopied] = useState(false);
   const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState('');
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose(false);
+        // If delete image modal is open, close only that
+        if (deleteConfirmIndex !== null) {
+          setDeleteConfirmIndex(null);
+        }
+        // If delete product modal is open, close only that
+        else if (showDeleteProductConfirm) {
+          setShowDeleteProductConfirm(false);
+          setDeleteConfirmId('');
+        }
+        // Otherwise close the main form
+        else {
+          onClose(false);
+        }
       }
     };
 
     window.addEventListener('keydown', handleEscapeKey);
     return () => window.removeEventListener('keydown', handleEscapeKey);
-  }, [onClose]);
+  }, [onClose, deleteConfirmIndex, showDeleteProductConfirm]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -483,6 +496,16 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
               <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
                 Delete Image?
               </h3>
+              
+              {/* Image Preview */}
+              <div className="flex justify-center mb-4">
+                <img 
+                  src={images[deleteConfirmIndex]?.urls?.medium || images[deleteConfirmIndex]?.medium || images[deleteConfirmIndex]} 
+                  alt="Image to delete"
+                  className="w-100 h-100 object-cover rounded-lg border-2 border-slate-200"
+                />
+              </div>
+              
               <p className="text-slate-600 text-center mb-6">
                 This will permanently delete the image and all its sizes from storage. This action cannot be undone.
               </p>
@@ -533,9 +556,9 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
       )}
 
       {/* Delete Product Confirmation Modal */}
-      {showDeleteProductConfirm && (
+      {showDeleteProductConfirm && product && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
                 <i className="fas fa-exclamation-triangle text-red-600 text-xl"></i>
@@ -546,12 +569,44 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
               <p className="text-slate-600 text-center mb-2">
                 This will permanently delete the product and all its images from storage.
               </p>
-              <p className="text-slate-600 text-center mb-6">
+              <p className="text-slate-600 text-center mb-4">
                 This action cannot be undone.
               </p>
+              
+              {/* Product ID Display */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  To confirm, type the product ID below:
+                </label>
+                <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-lg border border-slate-300 mb-3">
+                  <code className="flex-1 text-sm text-slate-800 font-mono break-all">{product.id}</code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(product.id);
+                    }}
+                    className="flex-shrink-0 p-1.5 hover:bg-slate-200 rounded transition text-slate-600 hover:text-slate-800"
+                    title="Copy Product ID"
+                  >
+                    <i className="fas fa-copy text-sm"></i>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={deleteConfirmId}
+                  onChange={(e) => setDeleteConfirmId(e.target.value)}
+                  placeholder="Type product ID here"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm font-mono"
+                  autoFocus
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowDeleteProductConfirm(false)}
+                  onClick={() => {
+                    setShowDeleteProductConfirm(false);
+                    setDeleteConfirmId('');
+                  }}
                   className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition"
                 >
                   Cancel
@@ -578,6 +633,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                         await deleteProduct(product.id);
                       }
                       setShowDeleteProductConfirm(false);
+                      setDeleteConfirmId('');
                       onClose(true);
                     } catch (err) {
                       console.error('Failed to delete product:', err);
@@ -586,8 +642,8 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                       setDeletingProduct(false);
                     }
                   }}
-                  disabled={deletingProduct}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white rounded-lg font-medium transition"
+                  disabled={deletingProduct || deleteConfirmId !== product.id}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
                 >
                   {deletingProduct ? 'Deleting...' : 'Delete'}
                 </button>
