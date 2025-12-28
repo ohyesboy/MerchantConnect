@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
 import { analyzeProductImage } from '../services/geminiService';
-import { addProduct, updateProduct, uploadProductImage, deleteProductImage } from '../services/firebaseService';
+import { addProduct, updateProduct, uploadProductImage, deleteProductImage, deleteProduct } from '../services/firebaseService';
 import { useEffect, useRef } from 'react';
 
 interface AdminProductFormProps {
@@ -26,6 +26,8 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+  const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState(false);
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => {
@@ -436,21 +438,35 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
               <p className="text-xs text-slate-400 mt-1">Hidden products are not visible in the public feed but remain visible in Admin view.</p>
             </div>
 
-            <div className="pt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onClose(false)}
-                className="mr-3 px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition"
-              >
-                {saving ? 'Saving...' : 'Save Product'}
-              </button>
+            <div className="pt-4 flex justify-between">
+              <div>
+                {product && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteProductConfirm(true)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-md transition"
+                  >
+                    <i className="fas fa-trash-alt mr-2"></i>
+                    Delete Product
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => onClose(false)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition"
+                >
+                  {saving ? 'Saving...' : 'Save Product'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -509,6 +525,71 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                   className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white rounded-lg font-medium transition"
                 >
                   {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {showDeleteProductConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                <i className="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
+                Delete Product?
+              </h3>
+              <p className="text-slate-600 text-center mb-2">
+                This will permanently delete the product and all its images from storage.
+              </p>
+              <p className="text-slate-600 text-center mb-6">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteProductConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeletingProduct(true);
+                    try {
+                      if (product) {
+                        // Delete all images from storage
+                        if (product.images && product.images.length > 0) {
+                          for (const imgObj of product.images) {
+                            if (imgObj.urls) {
+                              const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
+                                url => url && url.includes('firebasestorage.googleapis.com')
+                              );
+                              for (const url of urlsToDelete) {
+                                await deleteProductImage(url);
+                              }
+                            }
+                          }
+                        }
+                        // Delete the product from Firestore
+                        await deleteProduct(product.id);
+                      }
+                      setShowDeleteProductConfirm(false);
+                      onClose(true);
+                    } catch (err) {
+                      console.error('Failed to delete product:', err);
+                      alert('Failed to delete product. Please try again.');
+                    } finally {
+                      setDeletingProduct(false);
+                    }
+                  }}
+                  disabled={deletingProduct}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white rounded-lg font-medium transition"
+                >
+                  {deletingProduct ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>
