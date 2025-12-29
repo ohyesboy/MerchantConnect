@@ -285,8 +285,16 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
 
       let pathMatch;
 
-      // Check if this is a storage.googleapis.com URL
-      if (hostname.includes('storage.googleapis.com')) {
+      // Try Format 1 first: /v0/b/{bucket}/o/{path} (firebasestorage.googleapis.com)
+      // This handles: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/products%2F...?alt=media&token=...
+      pathMatch = fullPath.match(/\/o\/([^?]+)/);
+      if (pathMatch && pathMatch[1]) {
+        // Decode the URL-encoded path (e.g., %2F becomes /)
+        storagePath = decodeURIComponent(pathMatch[1]);
+      }
+
+      // If not found yet, check if this is a storage.googleapis.com URL
+      if (!storagePath && hostname.includes('storage.googleapis.com')) {
         // For storage.googleapis.com URLs, the pathname is: /{bucket}/{path}
         // We need to extract everything after the first slash and bucket name
         // The bucket name is the first path segment, so skip it
@@ -299,14 +307,6 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
           if (parts.length > 1) {
             storagePath = decodeURIComponent(parts.slice(1).join('/'));
           }
-        }
-      }
-
-      // If not found yet, try Format 1: /v0/b/{bucket}/o/{path}
-      if (!storagePath) {
-        pathMatch = fullPath.match(/\/o\/([^?]+)/);
-        if (pathMatch && pathMatch[1]) {
-          storagePath = decodeURIComponent(pathMatch[1]);
         }
       }
 
