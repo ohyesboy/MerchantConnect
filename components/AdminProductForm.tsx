@@ -653,7 +653,7 @@ export const AdminProductForm: React.FC<AdminProductFormProps> = ({ onClose, pro
                           for (const imgObj of product.images) {
                             if (imgObj.urls) {
                               const urlsToDelete = [imgObj.urls.small, imgObj.urls.medium, imgObj.urls.big].filter(
-                                url => url && url.includes('firebasestorage.googleapis.com')
+                                url => url && (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com'))
                               );
                               allUrlsToDelete.push(...urlsToDelete);
                             }

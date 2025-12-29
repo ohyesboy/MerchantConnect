@@ -270,17 +270,10 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
 
     // If not found in mapping, try to extract from URL
     if (!storagePath) {
-      console.log("=== Attempting to extract path from URL ===");
-      console.log("URL to delete:", imageUrl);
-
       const urlObj = new URL(imageUrl);
       const pathname = urlObj.pathname;
       const hostname = urlObj.hostname;
       const fullPath = pathname + urlObj.search;
-
-      console.log("Hostname:", hostname);
-      console.log("Pathname:", pathname);
-      console.log("Full path with search:", fullPath);
 
       // Handle multiple Firebase URL formats:
       // Format 1: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_path}?...
@@ -290,50 +283,54 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
       // Format 3: https://storage.googleapis.com/{bucket}/o/{encoded_path}?...
       //           pathname: /merchantconnect-137b7.firebasestorage.app/o/products%2F...
 
-      // Try Format 1: /v0/b/{bucket}/o/{path}
-      let pathMatch = fullPath.match(/\/o\/([^?]+)/);
-      if (pathMatch && pathMatch[1]) {
-        console.log("Matched Format 1 (firebasestorage.googleapis.com with /o/)");
-        storagePath = decodeURIComponent(pathMatch[1]);
-      } else {
-        // Try Format 2 & 3: /{bucket}/products/{path} or /{bucket}/o/{path}
-        pathMatch = pathname.match(/\/[^/]+\/((?:products|o).*)$/);
+      let pathMatch;
+
+      // Check if this is a storage.googleapis.com URL
+      if (hostname.includes('storage.googleapis.com')) {
+        // For storage.googleapis.com URLs, the pathname is: /{bucket}/{path}
+        // We need to extract everything after the first slash and bucket name
+        // The bucket name is the first path segment, so skip it
+        pathMatch = pathname.match(/^\/[^/]+\/(.+)$/);
         if (pathMatch && pathMatch[1]) {
-          console.log("Matched Format 2/3 (storage.googleapis.com)");
           storagePath = decodeURIComponent(pathMatch[1]);
         } else {
-          // Last resort: try to extract anything that looks like a storage path
-          // Look for 'products/' or 'o/' anywhere in the pathname
-          if (pathname.includes('/products/')) {
-            const idx = pathname.indexOf('/products/');
-            storagePath = decodeURIComponent(pathname.substring(idx + 1));
-            console.log("Matched fallback pattern (products/)");
-          } else if (pathname.includes('/o/')) {
-            const idx = pathname.indexOf('/o/');
-            storagePath = decodeURIComponent(pathname.substring(idx + 1));
-            console.log("Matched fallback pattern (o/)");
-          } else {
-            console.warn("Could not extract path from image URL:", imageUrl);
-            console.warn("Pathname:", pathname);
-            console.warn("Tried patterns: /o/, /{bucket}/products/, /{bucket}/o/");
-            return;
+          // Alternative: split by / and take everything from index 2 onwards
+          const parts = pathname.split('/').filter(p => p);
+          if (parts.length > 1) {
+            storagePath = decodeURIComponent(parts.slice(1).join('/'));
           }
         }
       }
 
-      console.log("Extracted storage path:", storagePath);
-    } else {
-      console.log("Using stored path from mapping:", storagePath);
-    }
+      // If not found yet, try Format 1: /v0/b/{bucket}/o/{path}
+      if (!storagePath) {
+        pathMatch = fullPath.match(/\/o\/([^?]+)/);
+        if (pathMatch && pathMatch[1]) {
+          storagePath = decodeURIComponent(pathMatch[1]);
+        }
+      }
 
-    console.log("Attempting to delete image at path:", storagePath);
+      // Last resort: try to extract anything that looks like a storage path
+      if (!storagePath) {
+        if (pathname.includes('/products/')) {
+          const idx = pathname.indexOf('/products/');
+          storagePath = decodeURIComponent(pathname.substring(idx + 1));
+        } else if (pathname.includes('/o/')) {
+          const idx = pathname.indexOf('/o/');
+          storagePath = decodeURIComponent(pathname.substring(idx + 1));
+        } else {
+          console.warn("Could not extract path from image URL:", imageUrl);
+          console.warn("Hostname:", hostname);
+          console.warn("Pathname:", pathname);
+          console.warn("Tried patterns: storage.googleapis.com, /o/, /products/");
+          return;
+        }
+      }
+    }
 
     // Create a reference from the path
     const storageRef = ref(storage, storagePath);
-    console.log("Storage reference created, calling deleteObject...");
-
     await deleteObject(storageRef);
-    console.log("✓ Image deleted from storage:", storagePath);
   } catch (err: any) {
     console.error("✗ Failed to delete image from storage");
     console.error("Error code:", err?.code);
