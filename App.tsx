@@ -292,58 +292,22 @@ const App: React.FC = () => {
       {/* Navbar */}
       <nav className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
+          <div className="flex justify-between items-center h-16 gap-4">
+            {/* Logo */}
+            <div className="flex items-center flex-shrink-0">
               {logoHtml ? (
                 <div
-           
+
                   dangerouslySetInnerHTML={{ __html: logoHtml }}
                 ></div>
               ) : (
                 <span className="text-xl font-bold text-blue-600 tracking-tight">Merchant<span className="text-slate-800">Connect</span></span>
               )}
             </div>
-            <div className="flex items-center space-x-4">
-              {user ? (
-                <>
-                  <div className="hidden md:flex flex-col text-right mr-2">
-                    <span className="text-sm font-medium text-slate-800">{user.firstName} {user.lastName}</span>
-                    <span className="text-xs text-slate-500">{user.uid}</span>
-                  </div>
 
-                  {(user.uid && adminEmails.includes(user.uid)) && (
-                    <button
-                      onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
-                      className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
-                    >
-                      {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
-                    </button>
-                  )}
-                  <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
-                    <i className="fas fa-sign-out-alt text-lg"></i>
-                  </button>
-                </>
-              ) : (
-                <button 
-                  onClick={handleLogin}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition"
-                >
-                  <i className="fab fa-google mr-2"></i> Login
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 w-full">
-        
-        {/* Header Section */}
-        <div className="mb-4">
-          <div className="max-w-7xl mx-auto px-0 sm:px-0">
-            <div className="flex items-center gap-3">
-              <div className="flex-grow relative">
+            {/* Search Bar */}
+            <div className="flex-grow max-w-md">
+              <div className="relative">
                 <input
                   aria-label="Search products"
                   value={searchTerm}
@@ -373,72 +337,99 @@ const App: React.FC = () => {
                       }
                     }
                   }}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white shadow-sm focus:outline-none"
-                  placeholder="Search products by name or description..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white shadow-sm focus:outline-none text-sm"
+                  placeholder="Search products..."
                 />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-sm text-slate-500 font-medium pointer-events-none">
-                  {displayedProducts.length} {displayedProducts.length === 1 ? 'product' : 'products'}
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-slate-500 font-medium pointer-events-none">
+                  {displayedProducts.length}
                 </div>
               </div>
-              {searchTerm && (
+            </div>
+
+            {/* Admin buttons (visible only in admin mode) */}
+            {viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid) && (
+              <div className="hidden lg:flex items-center space-x-2 flex-shrink-0">
                 <button
-                  onClick={() => setSearchTerm('')}
-                  className="px-3 py-2 bg-slate-100 rounded-lg text-sm text-slate-600 hover:bg-slate-200"
+                  onClick={async () => {
+                    // Create product in Firestore and open form
+                    const defaultProduct = {
+                      name: '',
+                      description: '',
+                      wholesalePrice: 0,
+                      retailPrice: 0,
+                      images: [],
+                      createdAt: Date.now(),
+                    };
+                    const docRef = await addProductWithRef(defaultProduct);
+                    setEditingProduct({ id: docRef.id, ...defaultProduct });
+                    setNewProductId(docRef.id);
+                    setIsProductFormOpen(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-medium transition"
+                  title="Add Product"
                 >
-                  Clear
+                  <i className="fas fa-plus mr-1"></i> Add
+                </button>
+                <button
+                  onClick={() => setIsBatchUploadOpen(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition"
+                  title="Batch Upload"
+                >
+                  <i className="fas fa-cloud-upload-alt mr-1"></i> Upload
+                </button>
+                <button
+                  onClick={() => setIsEditConfigOpen(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-medium transition"
+                  title="Edit Config"
+                >
+                  <i className="fas fa-cog mr-1"></i> Config
+                </button>
+                <button
+                  onClick={() => setIsFilesCleanupOpen(true)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-medium transition"
+                  title="Files Cleanup"
+                >
+                  <i className="fas fa-trash-alt mr-1"></i> Cleanup
+                </button>
+              </div>
+            )}
+
+            {/* Right side actions */}
+            <div className="flex items-center space-x-4 flex-shrink-0">
+              {user ? (
+                <>
+                  <div className="hidden md:flex flex-col text-right mr-2">
+                    <span className="text-sm font-medium text-slate-800">{user.firstName} {user.lastName}</span>
+                    <span className="text-xs text-slate-500">{user.uid}</span>
+                  </div>
+
+                  {(user.uid && adminEmails.includes(user.uid)) && (
+                    <button
+                      onClick={() => setViewState(viewState === ViewState.FEED ? ViewState.ADMIN_DASHBOARD : ViewState.FEED)}
+                      className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm font-medium hover:bg-indigo-200"
+                    >
+                      {viewState === ViewState.FEED ? 'Admin Mode' : 'View Feed'}
+                    </button>
+                  )}
+                  <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
+                    <i className="fas fa-sign-out-alt text-lg"></i>
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition"
+                >
+                  <i className="fab fa-google mr-2"></i> Login
                 </button>
               )}
             </div>
           </div>
         </div>
-        {viewState === ViewState.ADMIN_DASHBOARD && user?.uid && adminEmails.includes(user.uid) && (
-        <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between mb-8">
+      </nav>
 
-
-
-         <div className="flex flex-col md:flex-row gap-3">
-            <button
-              onClick={async () => {
-                // Create product in Firestore and open form
-                const defaultProduct = {
-                  name: '',
-                  description: '',
-                  wholesalePrice: 0,
-                  retailPrice: 0,
-                  images: [],
-                  createdAt: Date.now(),
-                };
-                const docRef = await addProductWithRef(defaultProduct);
-                setEditingProduct({ id: docRef.id, ...defaultProduct });
-                setNewProductId(docRef.id);
-                setIsProductFormOpen(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
-            >
-              <i className="fas fa-plus mr-2"></i> Add Product
-            </button>
-            <button
-              onClick={() => setIsBatchUploadOpen(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
-            >
-              <i className="fas fa-cloud-upload-alt mr-2"></i> Batch Upload
-            </button>
-            <button
-              onClick={() => setIsEditConfigOpen(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
-            >
-              <i className="fas fa-cog mr-2"></i> Edit Config
-            </button>
-            <button
-              onClick={() => setIsFilesCleanupOpen(true)}
-              className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md transition flex items-center justify-center"
-            >
-              <i className="fas fa-trash-alt mr-2"></i> Files Cleanup
-            </button>
-          </div>
-       
-        </div>
-   )}
+      {/* Main Content */}
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 w-full">
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
           {isRemoteSearching ? (
