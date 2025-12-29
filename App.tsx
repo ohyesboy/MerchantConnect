@@ -206,7 +206,7 @@ const App: React.FC = () => {
     return () => {
       if (unsubscribeProducts) unsubscribeProducts();
     };
-  }, []);
+  }, [user?.uid]);
 
   const handleLogin = async () => {
     try {
